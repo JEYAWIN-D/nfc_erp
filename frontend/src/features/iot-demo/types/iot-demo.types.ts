@@ -41,6 +41,8 @@ export interface OrderWorkflowContext {
   tasks: any[];
   operations: any[];
   bundles: any[];
+  attendances?: any[];
+  workerTimingStats?: Record<string, any>;
 }
 
 export interface IIoTProviderStrategy {

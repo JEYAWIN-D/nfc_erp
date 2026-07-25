@@ -16,7 +16,9 @@ export const shiftSchema = z.object({
   attendanceCount: z.number().default(0),
 });
 
-export type Shift = z.infer<typeof shiftSchema>;
+export type Shift = z.infer<typeof shiftSchema> & {
+  assignments?: any[];
+};
 
 export interface ShiftKPIs {
   totalShifts: number;

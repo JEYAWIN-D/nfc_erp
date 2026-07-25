@@ -389,7 +389,7 @@ export default function IotDemoPage() {
                 Operations:
               </span>
               <button
-                onClick={() => setActiveOperationId('ALL')}
+                onClick={() => setActiveOperationId(null)}
                 className={cn(
                   'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border whitespace-nowrap cursor-pointer',
                   activeOpId === 'ALL'

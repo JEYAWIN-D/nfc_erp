@@ -488,7 +488,7 @@ function MachineNode({ label, number, machine, search, isTopRow }: { label: stri
     return (
       <TooltipProvider>
         <Tooltip>
-          <TooltipTrigger asChild>
+          <TooltipTrigger>
             <div className="w-16 h-16 rounded-xl border-2 border-dashed border-white/15 bg-white/[0.02] hover:border-white/30 flex items-center justify-center shrink-0 shadow-inner cursor-pointer transition-all">
               <span className="text-base font-extrabold text-white/40">{label}</span>
             </div>

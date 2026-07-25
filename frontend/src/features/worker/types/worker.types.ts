@@ -90,6 +90,7 @@ export interface WorkerData extends WorkerProfile {
   history?: WorkerHistoryItem[];
   todayCheckIn?: string;
   todayCheckOut?: string;
+  avgMinutesPerBundle?: number;
 }
 
 // API Types based on Prisma Schema

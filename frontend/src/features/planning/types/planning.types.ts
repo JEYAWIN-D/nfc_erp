@@ -107,7 +107,7 @@ export interface PlanningMachine {
   id: number;
   machineCode: string;
   machineName: string;
-  departmentId: number;
+  departmentId?: number;
   department: {
     id: number;
     name: string;

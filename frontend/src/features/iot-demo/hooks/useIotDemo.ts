@@ -50,7 +50,7 @@ export function useIotDemo() {
   // 2. Attendance Query
   const attendancesQuery = useQuery({
     queryKey: ['attendances'],
-    queryFn: attendanceService.getTodayAttendance,
+    queryFn: attendanceService.getTodayAttendances,
     staleTime: 5000,
   });
 

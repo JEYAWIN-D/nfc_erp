@@ -83,8 +83,9 @@ export function AllocationWizardModal({
         id: typeof m.id === 'number' ? m.id : (idx + 1),
         machineCode: m.machineNumber || m.machineCode || `MCH-${String(idx + 1).padStart(3, '0')}`,
         machineName: m.machineName || m.name || m.machineNumber || `Machine ${idx + 1}`,
-        machineType: { name: m.type || m.machineType || "Juki Single Needle" },
-        department: { name: m.department || "Sewing" },
+        departmentId: m.departmentId || m.department?.id || 1,
+        machineType: { id: m.machineType?.id || 1, name: typeof m.machineType === 'object' ? (m.machineType?.name || "Juki Single Needle") : (m.type || m.machineType || "Juki Single Needle") },
+        department: { id: m.department?.id || 1, name: typeof m.department === 'object' ? (m.department?.name || "Sewing") : (m.department || "Sewing") },
         assignments: m.status === 'running' ? [{ id: 1 }] : []
       }));
     }
