@@ -108,13 +108,13 @@ export interface PlanningMachine {
   machineCode: string;
   machineName: string;
   departmentId?: number;
-  department: {
-    id: number;
-    name: string;
+  department?: {
+    id?: number;
+    name?: string;
   };
-  machineType: {
-    id: number;
-    name: string;
+  machineType?: {
+    id?: number;
+    name?: string;
   };
   assignments: Array<any>;
   roomId?: number | null;
