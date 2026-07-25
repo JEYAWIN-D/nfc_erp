@@ -34,6 +34,9 @@ export interface MachineAssignment {
   department?: string;
   assignedAt: string;
   shift: string;
+  checkInTime?: string;
+  checkOutTime?: string;
+  attendanceState?: 'present' | 'checked_out' | 'assigned_not_present';
 }
 
 export interface MachineBundle {

@@ -22,7 +22,7 @@ export class IotDemoController {
       const result = await iotDemoService.toggleWorker(Number(workerId));
       return res.status(200).json({ success: true, data: result });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(400).json({ success: false, error: err.message || 'Worker toggle failed' });
     }
   }
 
@@ -35,20 +35,23 @@ export class IotDemoController {
       const result = await iotDemoService.toggleMachine(Number(machineId), targetStatus);
       return res.status(200).json({ success: true, data: result });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(400).json({ success: false, error: err.message || 'Machine toggle failed' });
     }
   }
 
   async advanceBundle(req: Request, res: Response) {
     try {
-      const { bundleId } = req.body;
+      const { bundleId, workerId } = req.body;
       if (!bundleId) {
         return res.status(400).json({ success: false, error: 'bundleId is required' });
       }
-      const result = await iotDemoService.advanceBundle(Number(bundleId));
+      const result = await iotDemoService.advanceBundle(
+        Number(bundleId),
+        workerId ? Number(workerId) : undefined
+      );
       return res.status(200).json({ success: true, data: result });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(400).json({ success: false, error: err.message || 'Failed to advance bundle' });
     }
   }
 
@@ -58,7 +61,7 @@ export class IotDemoController {
       const result = await iotDemoService.resetDemo(productionOrderId ? Number(productionOrderId) : undefined);
       return res.status(200).json({ success: true, data: result });
     } catch (err: any) {
-      return res.status(500).json({ success: false, error: err.message });
+      return res.status(400).json({ success: false, error: err.message || 'Failed to reset demo' });
     }
   }
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export type OrderStatus = "draft" | "planned" | "running" | "paused" | "completed" | "delayed" | "closed";
+export type OrderStatus = "draft" | "planned" | "ready_for_production" | "running" | "in_progress" | "qc" | "paused" | "completed" | "delayed" | "closed";
 export type OrderPriority = "low" | "medium" | "high" | "urgent";
 
 export interface ProductionOrder {

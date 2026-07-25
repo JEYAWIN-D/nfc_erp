@@ -73,7 +73,21 @@ const MACHINE_TYPE_MAP: Record<string, number> = {
 };
 
 // Map backend API data to frontend UI format
-export const mapMachineAPIToUI = (data: MachineAPIResponse): MachineData => {
+export const mapMachineAPIToUI = (data: MachineAPIResponse, latestAttendance?: any): MachineData => {
+  let attendanceState: 'present' | 'checked_out' | 'assigned_not_present' = 'assigned_not_present';
+  let checkInTime: string | undefined = undefined;
+  let checkOutTime: string | undefined = undefined;
+
+  if (latestAttendance) {
+    if (latestAttendance.attendanceType === 'IN') {
+      attendanceState = 'present';
+      checkInTime = latestAttendance.tapTime;
+    } else if (latestAttendance.attendanceType === 'OUT') {
+      attendanceState = 'checked_out';
+      checkOutTime = latestAttendance.tapTime;
+    }
+  }
+
   return {
     id: data.machineCode,
     machineId: data.machineCode,
@@ -84,7 +98,7 @@ export const mapMachineAPIToUI = (data: MachineAPIResponse): MachineData => {
     floor: '1',
     room: (data as any).room?.name || 'Unassigned',
     productionLine: 'Line 1',
-    status: data.assignments && data.assignments.length > 0 ? 'running' : (data.status?.toLowerCase() === 'active' ? 'idle' : (data.status?.toLowerCase() as MachineStatus)),
+    status: attendanceState === 'present' ? 'running' : (attendanceState === 'checked_out' ? 'offline' : (data.assignments && data.assignments.length > 0 ? 'idle' : 'offline')),
     health: 'healthy' as MachineHealth,
     healthScore: 95,
     terminalId: data.terminal?.terminalCode || String(data.terminalId),
@@ -100,7 +114,10 @@ export const mapMachineAPIToUI = (data: MachineAPIResponse): MachineData => {
       productionOrder: (data as any).productionTasks?.[0]?.productionOrder?.orderNumber || 'N/A',
       department: (data as any).productionTasks?.[0]?.department?.name || data.department?.name || 'General',
       assignedAt: data.assignments[0].assignedAt,
-      shift: data.assignments[0].shift?.name || "Morning"
+      shift: data.assignments[0].shift?.name || "Morning",
+      checkInTime,
+      checkOutTime,
+      attendanceState,
     } : undefined,
     currentBundle: undefined,
     todayTarget: 0,
@@ -118,15 +135,26 @@ export const mapMachineAPIToUI = (data: MachineAPIResponse): MachineData => {
 export const machineService = {
   async getMachines() {
     const { data } = await apiClient.get<{ success: boolean; data: { data: MachineAPIResponse[] } }>('/machines?limit=2000');
-    return data.data.data.map(mapMachineAPIToUI);
+    return data.data.data.map(m => mapMachineAPIToUI(m));
   },
 
   async getMachine(id: string) {
-    // Attempt to search by machineCode if ID is string
     const { data } = await apiClient.get<{ success: boolean; data: { data: MachineAPIResponse[] } }>(`/machines?machineCode=${id}`);
     const machine = data.data.data.find(m => m.machineCode === id);
     if (!machine) throw new Error("Machine not found");
-    return mapMachineAPIToUI(machine);
+
+    let latestAttendance = null;
+    if (machine.assignments && machine.assignments.length > 0 && machine.assignments[0].workerId) {
+      try {
+        const { data: attRes } = await apiClient.get(`/attendance/today`);
+        const workerAtts = (attRes.data || []).filter((a: any) => a.workerId === machine.assignments![0].workerId);
+        if (workerAtts.length > 0) {
+          latestAttendance = workerAtts.sort((a: any, b: any) => new Date(b.tapTime).getTime() - new Date(a.tapTime).getTime())[0];
+        }
+      } catch {}
+    }
+
+    return mapMachineAPIToUI(machine, latestAttendance);
   },
 
   async createMachine(machine: MachineFormData) {

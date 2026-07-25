@@ -49,9 +49,25 @@ export class ShiftRepository {
   }
 
   async findById(id: number) {
-    return prisma.shift.findUnique({
+    const shift = await prisma.shift.findUnique({
       where: { id },
+      include: {
+        assignments: {
+          where: { status: "ACTIVE" },
+          include: {
+            worker: {
+              include: {
+                department: true,
+                grade: true
+              }
+            },
+            machine: true,
+            operation: true
+          }
+        }
+      }
     });
+    return shift;
   }
 
   async findByCode(shiftCode: string) {

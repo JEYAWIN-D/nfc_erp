@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Activity, Play, ArrowRight, Package, Layers, CheckCircle, Wand2, Users, Cpu, ShieldAlert, CheckSquare, Clock, ChevronUp, ChevronDown, ChevronRight } from "lucide-react";
+import { Activity, Play, ArrowRight, Package, Layers, CheckCircle, Wand2, Users, Cpu, ShieldAlert, CheckSquare, Clock, ChevronUp, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import { useProductionOrders } from "../production-order/hooks/useProductionOrderData";
 import { useLivePlanningResources } from "./hooks/useLivePlanningResources";
 import { useOperations } from "../operation/hooks/useOperations";
@@ -119,6 +119,8 @@ export default function PlanningCenterPage() {
     return {};
   });
   
+  const [selectedShiftId, setSelectedShiftId] = useState<number>(1);
+  
   // Drawer state
   const [activeOperationId, setActiveOperationId] = useState<number | null>(null);
   // Phase 3: which operation's bundle tracker is expanded
@@ -144,36 +146,36 @@ export default function PlanningCenterPage() {
     localStorage.setItem('planning_drafts', JSON.stringify(activeDrafts));
   }, [selectedOrderId, selectedOperations, assignments, piecesPerBundle, drafts]);
 
-  // Auto-validate selectedOrderId against loaded orders to clear stale localStorage selections
+  const pendingOrders = useMemo(() => {
+    return orders.filter(o => o.status === "planned" || (o.status as string) === 'PLANNED' || (o.status as string) === 'DRAFT' || (o.status as string) === 'draft');
+  }, [orders]);
+
+  const selectedOrder = useMemo(() => {
+    if (!selectedOrderId) return undefined;
+    return pendingOrders.find(o => o.id === selectedOrderId);
+  }, [pendingOrders, selectedOrderId]);
+
+  // Auto-validate selectedOrderId against PENDING orders to clear published/stale selections
   useEffect(() => {
     if (!loadingOrders) {
-      if (orders.length > 0) {
-        const exists = orders.some(o => o.id === selectedOrderId);
+      if (pendingOrders.length > 0) {
+        const exists = pendingOrders.some(o => o.id === selectedOrderId);
         if (!exists) {
-          const firstId = orders[0].id;
+          const firstId = pendingOrders[0].id;
           setSelectedOrderId(firstId);
           const draft = drafts[firstId];
           setAssignments(draft?.assignments || {});
           setPiecesPerBundle(draft?.piecesPerBundle || 12);
           setSelectedOperations(draft?.selectedOperations || []);
         }
-      } else if (selectedOrderId !== null) {
+      } else {
         setSelectedOrderId(null);
         localStorage.removeItem('planning_selected_order');
         setAssignments({});
         setSelectedOperations([]);
       }
     }
-  }, [orders, loadingOrders, selectedOrderId]);
-
-  const pendingOrders = useMemo(() => {
-    const targetStatus: OrderStatus = "planned";
-    return orders.filter(o => o.status === targetStatus);
-  }, [orders]);
-
-  const selectedOrder = useMemo(() => {
-    return orders.find(o => o.id === selectedOrderId);
-  }, [orders, selectedOrderId]);
+  }, [pendingOrders, loadingOrders, selectedOrderId]);
 
   const handleSelectOrder = (id: string) => {
     if (selectedOrderId) {
@@ -299,6 +301,7 @@ export default function PlanningCenterPage() {
             operationId: opId,
             workerId: pair.workerId,
             machineId: pair.machineId,
+            shiftId: selectedShiftId || 1,
             roomId: getValidNumber(pair.roomId),
             rowIndex: getValidNumber(pair.rowIndex),
             positionIndex: getValidNumber(pair.positionIndex)
@@ -306,6 +309,26 @@ export default function PlanningCenterPage() {
         });
       }
     });
+
+    const validMachineIds = new Set((resources?.machines || []).map((m: any) => Number(m.id)));
+    const validWorkerIds = new Set((resources?.workers || []).map((w: any) => Number(w.id)));
+
+    let cleanAssignments = assignmentArray;
+    if (validMachineIds.size > 0 && validWorkerIds.size > 0) {
+      cleanAssignments = assignmentArray.filter(a => 
+        validMachineIds.has(Number(a.machineId)) && validWorkerIds.has(Number(a.workerId))
+      );
+
+      if (assignmentArray.length > 0 && cleanAssignments.length < assignmentArray.length) {
+        const removedCount = assignmentArray.length - cleanAssignments.length;
+        if (cleanAssignments.length === 0) {
+          toast.error("Assignments contain invalid IDs. Please click 'Auto-Plan' or 'Reset' to allocate valid resources.");
+          return;
+        } else {
+          toast.warning(`${removedCount} invalid assignment(s) were cleaned before publishing.`);
+        }
+      }
+    }
 
     if (selectedOperations.length === 0) {
       alert("Please define the Operation Routing (Step 1) before publishing.");
@@ -315,7 +338,7 @@ export default function PlanningCenterPage() {
     publishPlan.mutate({
       productionOrderId: Number(selectedOrder.id),
       bundles,
-      assignments: assignmentArray,
+      assignments: cleanAssignments,
       // Pass operations in step order — backend uses this for displayOrder gating
       operations: selectedOperations,
       operationOrder: selectedOperations.map((id, idx) => ({ operationId: id, stepOrder: idx + 1 }))
@@ -334,6 +357,9 @@ export default function PlanningCenterPage() {
         });
 
         setSelectedOrderId(null);
+        setSelectedOperations([]);
+        setAssignments({});
+        localStorage.removeItem('planning_selected_order');
         toast.success("Plan published and tags assigned successfully.");
       },
       onError: (err: any) => {
@@ -371,8 +397,8 @@ export default function PlanningCenterPage() {
     });
   }
 
-  const filteredWorkers = (resources?.workers || []).filter((w: any) => !globallyAssignedWorkers.has(Number(w.id)));
-  const filteredMachines = (resources?.machines || []).filter((m: any) => !globallyAssignedMachines.has(Number(m.id)));
+  const filteredWorkers = (resources?.workers || []) as any[];
+  const filteredMachines = (resources?.machines || []) as any[];
 
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white overflow-hidden relative">
@@ -530,6 +556,31 @@ export default function PlanningCenterPage() {
                   <p className="text-sm text-white/60 mt-1">{selectedOrder.customerName} | {selectedOrder.styleNumber} | Dept: {selectedOrder.department}</p>
                 </div>
                 <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 bg-zinc-800 border border-white/10 px-3 py-2 rounded-lg text-xs">
+                    <Clock className="w-4 h-4 text-emerald-400" />
+                    <span className="text-white/60 font-semibold">Shift:</span>
+                    <select
+                      value={selectedShiftId}
+                      onChange={(e) => setSelectedShiftId(Number(e.target.value))}
+                      className="bg-transparent text-white font-bold outline-none cursor-pointer"
+                    >
+                      <option value={1} className="bg-zinc-900 text-white">🌅 Shift A (Morning 07:00 - 15:00)</option>
+                      <option value={2} className="bg-zinc-900 text-white">🌆 Shift B (Evening 15:00 - 23:00)</option>
+                      <option value={3} className="bg-zinc-900 text-white">🌃 Shift C (Night 23:00 - 07:00)</option>
+                    </select>
+                  </div>
+
+                  <button 
+                    onClick={() => {
+                      setAssignments({});
+                      toast.info("Assignments reset.");
+                    }}
+                    className="flex items-center gap-1.5 bg-zinc-800 text-white/70 hover:text-white hover:bg-zinc-700 px-3 py-2.5 rounded-lg text-xs font-semibold transition-all border border-white/10"
+                    title="Reset all assignments for this order"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" /> Reset
+                  </button>
+
                   <button 
                     onClick={handleAutoPlan}
                     className="flex items-center gap-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 px-4 py-2.5 rounded-lg font-semibold transition-all border border-blue-500/30"

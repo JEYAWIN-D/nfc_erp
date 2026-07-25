@@ -16,8 +16,8 @@ export class DemoHardwareStrategy implements IIoTProviderStrategy {
     return iotDemoApiService.toggleMachine(machineId, targetStatus);
   }
 
-  async advanceBundle(bundleId: number) {
-    return iotDemoApiService.advanceBundle(bundleId);
+  async advanceBundle(bundleId: number, workerId?: number) {
+    return iotDemoApiService.advanceBundle(bundleId, workerId);
   }
 
   async resetDemo(productionOrderId?: number) {

@@ -53,7 +53,58 @@ const GRADE_MAP: Record<string, number> = {
 };
 
 // Map backend API data to frontend UI format
-export const mapWorkerAPIToUI = (data: WorkerAPIResponse): WorkerData => {
+export const mapWorkerAPIToUI = (data: WorkerAPIResponse, attendanceLogs: any[] = []): WorkerData => {
+  let todayCheckIn: string | undefined = undefined;
+  let todayCheckOut: string | undefined = undefined;
+  let attendanceState: 'present' | 'checked_out' | 'assigned_not_present' = 'assigned_not_present';
+
+  const mappedAttendanceRecords = attendanceLogs.map((att: any) => {
+    const isToday = new Date(att.tapTime).toDateString() === new Date().toDateString();
+    if (isToday) {
+      if (att.attendanceType === 'IN' && !todayCheckIn) {
+        todayCheckIn = att.tapTime;
+        attendanceState = 'present';
+      }
+      if (att.attendanceType === 'OUT' && !todayCheckOut) {
+        todayCheckOut = att.tapTime;
+        attendanceState = 'checked_out';
+      }
+    }
+
+    return {
+      date: new Date(att.tapTime).toLocaleDateString(),
+      status: att.attendanceType === 'IN' ? ('present' as const) : ('absent' as const),
+      checkIn: att.attendanceType === 'IN' ? new Date(att.tapTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : undefined,
+      checkOut: att.attendanceType === 'OUT' ? new Date(att.tapTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : undefined,
+      workingHours: 8,
+    };
+  });
+
+  const history = attendanceLogs.map((att: any, idx: number) => ({
+    id: `hist-${att.id || idx}`,
+    date: new Date(att.tapTime).toLocaleDateString(),
+    operationName: att.assignment?.operation?.operationName || (data as any).productionTasks?.[0]?.operation?.name || (data.assignments?.[0] as any)?.operation?.operationName || 'Sewing / Assembly',
+    productionOrder: (data as any).productionTasks?.[0]?.productionOrder?.orderNumber || 'PO-1001',
+    projectName: (data as any).productionTasks?.[0]?.productionOrder?.styleName || 'Garment Style',
+    machineCode: att.machine?.machineCode || (data.assignments?.[0]?.machine as any)?.machineCode || 'M-101',
+    startTime: att.attendanceType === 'IN' ? new Date(att.tapTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+    endTime: att.attendanceType === 'OUT' ? new Date(att.tapTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : undefined,
+    status: att.attendanceType === 'IN' ? 'IN_PROGRESS' : 'COMPLETED',
+  }));
+
+  const currentAssignment = data.assignments && data.assignments.length > 0 ? {
+    machineId: data.assignments[0].machine?.machineCode || `MAC-${(data.assignments[0] as any).machineId}`,
+    operation: (data as any).productionTasks?.[0]?.operation?.name || (data.assignments[0] as any).operation?.operationName || 'Assigned Operation',
+    project: (data as any).productionTasks?.[0]?.productionOrder?.styleName || 'N/A',
+    productionOrder: (data as any).productionTasks?.[0]?.productionOrder?.orderNumber || 'N/A',
+    department: (data as any).productionTasks?.[0]?.department?.name || data.department?.name || 'General',
+    status: 'active' as const,
+    assignedAt: new Date((data.assignments[0] as any).assignedAt || new Date()),
+    checkInTime: todayCheckIn,
+    checkOutTime: todayCheckOut,
+    attendanceState,
+  } : undefined;
+
   return {
     id: data.employeeCode, // UI uses employeeCode as ID in many places
     employeeCode: data.employeeCode,
@@ -63,44 +114,41 @@ export const mapWorkerAPIToUI = (data: WorkerAPIResponse): WorkerData => {
     grade: (data.grade?.code || 'C') as any,
     primarySkill: data.skills && data.skills.length > 0 ? data.skills[0].skill.name : 'Unassigned',
     secondarySkills: data.skills && data.skills.length > 1 ? data.skills.slice(1).map(s => s.skill.name) : [],
-    shift: 'Morning', // Mocked shift as it's not strictly on Worker model directly
+    shift: 'Morning',
     nfcCardId: data.nfcCardId || '',
-    currentAssignment: data.assignments && data.assignments.length > 0 ? {
-      machineId: data.assignments[0].machine?.machineCode || `MAC-${(data.assignments[0] as any).machineId}`,
-      operation: (data as any).productionTasks?.[0]?.operation?.name || (data.assignments[0] as any).operation?.operationName || 'Assigned Operation',
-      project: (data as any).productionTasks?.[0]?.productionOrder?.styleName || 'N/A',
-      productionOrder: (data as any).productionTasks?.[0]?.productionOrder?.orderNumber || 'N/A',
-      department: (data as any).productionTasks?.[0]?.department?.name || data.department?.name || 'General',
-      status: 'active' as const,
-      assignedAt: new Date((data.assignments[0] as any).assignedAt || new Date())
-    } : undefined,
+    currentAssignment,
     joiningDate: new Date(data.createdAt),
     status: (data.status?.toLowerCase() || 'active') as WorkerStatus,
     createdAt: new Date(data.createdAt),
     updatedAt: new Date(data.updatedAt),
     
-    // Mock records for details drawer
-    attendanceRecords: [],
+    attendanceRecords: mappedAttendanceRecords,
     productionHistory: [],
-    timeline: []
+    timeline: [],
+    history,
+    todayCheckIn,
+    todayCheckOut,
   };
 };
 
 export const workerService = {
   async getWorkers() {
     const { data } = await apiClient.get<{ success: boolean; data: { data: WorkerAPIResponse[] } }>('/workers?limit=2000');
-    return data.data.data.map(mapWorkerAPIToUI);
+    return data.data.data.map(w => mapWorkerAPIToUI(w));
   },
 
   async getWorker(id: string) {
-    // Note: the backend getById expects a numeric ID. 
-    // Since UI uses employeeCode as ID mostly, we'll try to fetch all and find by code if id is string, 
-    // or if we have the actual db ID we can use it.
-    // Let's use the list endpoint with a filter to be safe if `id` is employeeCode
     const { data } = await apiClient.get<{ success: boolean; data: { data: WorkerAPIResponse[] } }>(`/workers?employeeCode=${id}`);
     const worker = data.data.data.find(w => w.employeeCode === id);
     if (!worker) throw new Error("Worker not found");
-    return mapWorkerAPIToUI(worker);
+
+    let attendanceLogs: any[] = [];
+    try {
+      const { data: attRes } = await apiClient.get(`/attendance/worker/${worker.id}`);
+      attendanceLogs = attRes.data || [];
+    } catch {}
+
+    return mapWorkerAPIToUI(worker, attendanceLogs);
   },
 
   async createWorker(worker: WorkerFormData) {

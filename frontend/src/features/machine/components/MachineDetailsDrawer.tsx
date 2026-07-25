@@ -288,12 +288,22 @@ export function MachineDetailsDrawer() {
                   }
                 />
                 <InfoField
-                  label="Assigned Time"
+                  label="Work Start Time (Check-IN)"
                   value={
-                    machine.currentAssignment?.assignedAt 
-                      ? new Date(machine.currentAssignment.assignedAt).toLocaleString() 
-                      : "N/A"
+                    machine.currentAssignment?.checkInTime 
+                      ? new Date(machine.currentAssignment.checkInTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+                      : "Not Checked IN"
                   }
+                  mono
+                />
+                <InfoField
+                  label="Work End Time (Check-OUT)"
+                  value={
+                    machine.currentAssignment?.checkOutTime 
+                      ? new Date(machine.currentAssignment.checkOutTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) 
+                      : "Not Checked OUT"
+                  }
+                  mono
                 />
                 <InfoField
                   label="Shift"

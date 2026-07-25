@@ -7,7 +7,8 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, MoreHorizontal, Eye, FileEdit, Trash2, RefreshCw } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, MoreHorizontal, Eye, FileEdit, Trash2, RefreshCw, Play } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -25,6 +26,7 @@ import { OrderStatusBadge, OrderPriorityBadge, ProgressBar } from "./ProductionO
 const columnHelper = createColumnHelper<ProductionOrder>();
 
 export function ProductionOrderTable() {
+  const navigate = useNavigate();
   const { orders, isLoading, isRefetching, refetch } = useProductionOrders();
   const updateStatusMutation = useUpdateProductionOrderStatus();
   const deleteOrderMutation = useDeleteProductionOrder();
@@ -110,6 +112,14 @@ export function ProductionOrderTable() {
               >
                 <Eye className="w-4 h-4 mr-2" /> View Details
               </DropdownMenuItem>
+              {(info.row.original.status === 'ready_for_production' || info.row.original.status === 'planned' || info.row.original.status === 'running') && (
+                <DropdownMenuItem 
+                  onClick={() => navigate(`/iot-demo?orderId=${info.row.original.id}`)}
+                  className="hover:bg-emerald-500/20 focus:bg-emerald-500/20 text-emerald-400 font-semibold cursor-pointer"
+                >
+                  <Play className="w-4 h-4 mr-2" /> Start Production
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem 
                 className="hover:bg-white/10 focus:bg-white/10 cursor-pointer" 
                 onClick={() => store.setEditModalOpen(true, info.row.original.id)}

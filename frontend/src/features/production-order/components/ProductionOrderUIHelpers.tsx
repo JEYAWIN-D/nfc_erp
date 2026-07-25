@@ -5,7 +5,10 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   const config = {
     draft: { bg: "bg-zinc-500/10", text: "text-zinc-400", border: "border-zinc-500/20", label: "Draft" },
     planned: { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20", label: "Planned" },
+    ready_for_production: { bg: "bg-cyan-500/10", text: "text-cyan-400", border: "border-cyan-500/20", label: "Ready For Prod" },
     running: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", label: "Running" },
+    in_progress: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", label: "In Progress" },
+    qc: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", label: "QC Pending" },
     paused: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", label: "Paused" },
     completed: { bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20", label: "Completed" },
     delayed: { bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20", label: "Delayed" },

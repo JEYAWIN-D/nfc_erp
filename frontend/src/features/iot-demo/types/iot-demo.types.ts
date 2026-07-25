@@ -48,7 +48,7 @@ export interface IIoTProviderStrategy {
   getContext(orderId?: number): Promise<OrderWorkflowContext>;
   toggleWorker(workerId: number): Promise<ToggleWorkerResponse>;
   toggleMachine(machineId: number, targetStatus?: string): Promise<ToggleMachineResponse>;
-  advanceBundle(bundleId: number): Promise<AdvanceBundleResponse>;
+  advanceBundle(bundleId: number, workerId?: number): Promise<AdvanceBundleResponse>;
   resetDemo(productionOrderId?: number): Promise<{ success: boolean; message: string }>;
   getLogs(): Promise<DemoActivityLog[]>;
 }

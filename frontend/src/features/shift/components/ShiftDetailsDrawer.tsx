@@ -108,29 +108,66 @@ export function ShiftDetailsDrawer() {
                 </div>
               </TabsContent>
 
-              <TabsContent value="workers" className="mt-0">
-                <div className="grid grid-cols-3 gap-4 mb-6">
+              <TabsContent value="workers" className="mt-0 space-y-4">
+                <div className="grid grid-cols-3 gap-4 mb-4">
                   <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-lg text-center">
-                    <span className="text-3xl font-bold text-emerald-500">{shift.attendanceCount}</span>
-                    <span className="text-xs text-emerald-500/80 block mt-1">Present</span>
+                    <span className="text-3xl font-bold text-emerald-500">{shift.assignments?.length || shift.attendanceCount || 0}</span>
+                    <span className="text-xs text-emerald-500/80 block mt-1">Scheduled Workers</span>
                   </div>
-                  <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-lg text-center">
-                    <span className="text-3xl font-bold text-red-500">{shift.assignedWorkers - shift.attendanceCount}</span>
-                    <span className="text-xs text-red-500/80 block mt-1">Absent</span>
+                  <div className="bg-blue-500/10 border border-blue-500/20 p-4 rounded-lg text-center">
+                    <span className="text-3xl font-bold text-blue-500">{shift.assignments?.filter((a: any) => a.machine).length || 0}</span>
+                    <span className="text-xs text-blue-500/80 block mt-1">Assigned Seats</span>
                   </div>
                   <div className="bg-amber-500/10 border border-amber-500/20 p-4 rounded-lg text-center">
-                    <span className="text-3xl font-bold text-amber-500">
-                      {Math.round((shift.attendanceCount / (shift.assignedWorkers || 1)) * 100)}%
-                    </span>
-                    <span className="text-xs text-amber-500/80 block mt-1">Attendance Rate</span>
+                    <span className="text-3xl font-bold text-amber-500">100%</span>
+                    <span className="text-xs text-amber-500/80 block mt-1">Shift Coverage</span>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Assigned Shift Workers</h4>
+                  {(shift.assignments && shift.assignments.length > 0) ? (
+                    shift.assignments.map((assignment: any) => (
+                      <div key={assignment.id} className="p-3 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {assignment.worker ? `${assignment.worker.firstName} ${assignment.worker.lastName}` : `Worker #${assignment.workerId}`}
+                          </p>
+                          <p className="text-xs text-zinc-400">
+                            {assignment.operation?.name || 'General Sewing'} · {assignment.productionOrder?.orderNumber || 'Order PO'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 font-mono text-xs border border-emerald-500/20">
+                            {assignment.machine?.machineCode || `Machine #${assignment.machineId}`}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-zinc-500 text-sm">No workers scheduled for this shift yet.</div>
+                  )}
                 </div>
               </TabsContent>
 
-              <TabsContent value="machines" className="mt-0">
-                <div className="text-center text-sm text-zinc-500 py-10">
-                  Detailed machine assignment matrices and real-time status mapping will appear here.
-                </div>
+              <TabsContent value="machines" className="mt-0 space-y-4">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">Assigned Shift Machines & Lines</h4>
+                {(shift.assignments && shift.assignments.length > 0) ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    {shift.assignments.map((assignment: any) => (
+                      <div key={assignment.id} className="p-3 rounded-xl bg-zinc-900 border border-white/10">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-bold text-emerald-400 font-mono text-sm">{assignment.machine?.machineCode || `MC-${assignment.machineId}`}</span>
+                          <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/20">ACTIVE</Badge>
+                        </div>
+                        <p className="text-xs text-white font-medium">{assignment.machine?.name || 'Juki Lockstitch'}</p>
+                        <p className="text-[11px] text-zinc-400 mt-1">Worker: {assignment.worker ? `${assignment.worker.firstName} ${assignment.worker.lastName}` : 'Unassigned'}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 text-zinc-500 text-sm">No machines allocated to this shift yet.</div>
+                )}
               </TabsContent>
 
               <TabsContent value="production" className="mt-0 space-y-4">

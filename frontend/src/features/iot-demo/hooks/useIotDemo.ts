@@ -5,22 +5,45 @@ import { useIotDemoStore } from '../store/iot-demo.store';
 import { attendanceService } from '@/features/attendance/services/attendance.service';
 import type { DemoActivityLog } from '../types/iot-demo.types';
 
+import { useSearchParams } from 'react-router-dom';
+
 export function useIotDemo() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const urlOrderId = searchParams.get('orderId');
   const { strategy, selectedOrderId, setSelectedOrderId, addLog, setLogs } = useIotDemoStore();
+
+  useEffect(() => {
+    if (urlOrderId) {
+      const parsedId = Number(urlOrderId);
+      if (!isNaN(parsedId) && parsedId !== selectedOrderId) {
+        setSelectedOrderId(parsedId);
+      }
+    }
+  }, [urlOrderId]);
 
   // 1. Order Workflow Context Query
   const contextQuery = useQuery({
     queryKey: ['iot-demo-context', selectedOrderId],
     queryFn: () => strategy.getContext(selectedOrderId ?? undefined),
-    staleTime: 5000,
+    staleTime: 0,
+    refetchOnMount: true,
   });
 
-  // Automatically select IN_PROGRESS order or first order if none selected
+  // Automatically select active/newly created order if none selected or stale ID
   useEffect(() => {
-    if (contextQuery.data?.orders?.length && !selectedOrderId) {
-      const inProgressOrder = contextQuery.data.orders.find((o: any) => o.status === 'IN_PROGRESS');
-      setSelectedOrderId(inProgressOrder ? inProgressOrder.id : contextQuery.data.orders[0].id);
+    if (contextQuery.data?.selectedOrder?.id) {
+      const activeId = contextQuery.data.selectedOrder.id;
+      if (!selectedOrderId || selectedOrderId !== activeId) {
+        setSelectedOrderId(activeId);
+      }
+    } else if (contextQuery.data?.orders?.length) {
+      const targetOrder = contextQuery.data.orders.find((o: any) => 
+        o.status === 'READY_FOR_PRODUCTION' || o.status === 'RUNNING' || o.status === 'IN_PROGRESS' || o.status === 'PLANNED' || o.status === 'DRAFT'
+      ) || contextQuery.data.orders[0];
+      if (targetOrder && targetOrder.id !== selectedOrderId) {
+        setSelectedOrderId(targetOrder.id);
+      }
     }
   }, [contextQuery.data, selectedOrderId, setSelectedOrderId]);
 
@@ -94,7 +117,11 @@ export function useIotDemo() {
   });
 
   const advanceBundleMutation = useMutation({
-    mutationFn: (bundleId: number) => strategy.advanceBundle(bundleId),
+    mutationFn: (payload: { bundleId: number; workerId?: number } | number) => {
+      const bundleId = typeof payload === 'number' ? payload : payload.bundleId;
+      const workerId = typeof payload === 'number' ? undefined : payload.workerId;
+      return strategy.advanceBundle(bundleId, workerId);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['iot-demo-context'] });
     },
@@ -117,7 +144,9 @@ export function useIotDemo() {
     bundles: [],
   };
 
-  const attendances = (attendancesQuery.data as any)?.data?.data || (attendancesQuery.data as any)?.data || attendancesQuery.data || [];
+  const contextAttendances = context.attendances || [];
+  const rawAttendances = (attendancesQuery.data as any)?.data?.data || (attendancesQuery.data as any)?.data || (Array.isArray(attendancesQuery.data) ? attendancesQuery.data : []);
+  const combinedAttendances = [...contextAttendances, ...rawAttendances];
 
   return {
     context,
@@ -126,7 +155,8 @@ export function useIotDemo() {
     tasks: context.tasks || [],
     operations: context.operations || [],
     bundles: context.bundles || [],
-    attendances: Array.isArray(attendances) ? attendances : [],
+    attendances: combinedAttendances,
+    workerTimingStats: context.workerTimingStats || {},
     isLoading: contextQuery.isLoading,
     toggleWorker: toggleWorkerMutation.mutate,
     isTogglingWorker: toggleWorkerMutation.isPending,

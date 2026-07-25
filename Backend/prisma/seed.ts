@@ -193,16 +193,41 @@ async function main() {
     { code: 'EMP-0010', nfc: 'NFC-AA0010', first: 'Anitha', last: 'Subramanian', gender: 'F', dept: deptSewing, grade: gradeC },
   ];
 
-  // Dynamically generate 50 additional workers
-  const firstNames = ['Amit', 'Raj', 'Sita', 'Gita', 'Mohan', 'Suresh', 'Ramesh', 'Rani', 'Geeta', 'Neha', 'Pooja', 'Vikram', 'Anil', 'Sunil', 'Kiran', 'Asha', 'Usha', 'Deepa', 'Jyoti', 'Kavita', 'Manoj', 'Rakesh', 'Sanjay', 'Vijay', 'Ajay'];
-  const lastNames = ['Kumar', 'Sharma', 'Singh', 'Patel', 'Yadav', 'Gupta', 'Verma', 'Reddy', 'Nair', 'Menon', 'Iyer', 'Das', 'Bose', 'Dutta', 'Chowdhury', 'Sen', 'Pillai', 'Rao', 'Deshmukh', 'Patil'];
+  // Dynamically generate unique real workers
+  const realNames = [
+    { first: 'Ravi', last: 'Kumar' }, { first: 'Priya', last: 'Sharma' }, { first: 'Suresh', last: 'Babu' },
+    { first: 'Meena', last: 'Raj' }, { first: 'Arjun', last: 'Singh' }, { first: 'Lakshmi', last: 'Nair' },
+    { first: 'Ganesh', last: 'Murthy' }, { first: 'Kavitha', last: 'Krishnan' }, { first: 'Dinesh', last: 'Pandey' },
+    { first: 'Anitha', last: 'Subramanian' }, { first: 'Manoj', last: 'Kumar' }, { first: 'Deepa', last: 'Sundaram' },
+    { first: 'Ramesh', last: 'Verma' }, { first: 'Sunita', last: 'Reddy' }, { first: 'Karthik', last: 'Raja' },
+    { first: 'Divya', last: 'Lakshmi' }, { first: 'Arul', last: 'Dass' }, { first: 'Meenakshi', last: 'Sundaram' },
+    { first: 'Vijay', last: 'Kumar' }, { first: 'Lakshmanan', last: 'Pillai' }, { first: 'Saravanan', last: 'Iyer' },
+    { first: 'Yamuna', last: 'Devi' }, { first: 'Harish', last: 'Chandra' }, { first: 'Rekha', last: 'Gupta' },
+    { first: 'Sathish', last: 'Kumar' }, { first: 'Vimala', last: 'Rani' }, { first: 'Ashok', last: 'Venkatesh' },
+    { first: 'Bhuvaneshwari', last: 'Natarajan' }, { first: 'Chitra', last: 'Devi' }, { first: 'Dharmendra', last: 'Yadav' },
+    { first: 'Ezhil', last: 'Arasan' }, { first: 'Fatima', last: 'Beevi' }, { first: 'Gokul', last: 'Nath' },
+    { first: 'Hemalatha', last: 'Sekar' }, { first: 'Indrajith', last: 'Sen' }, { first: 'Jayanthi', last: 'Mani' },
+    { first: 'Kowsalya', last: 'Kannan' }, { first: 'Loganathan', last: 'Pillai' }, { first: 'Mohanraj', last: 'Bose' },
+    { first: 'Nithya', last: 'Shree' }, { first: 'Om', last: 'Prakash' }, { first: 'Padmavathi', last: 'Rao' },
+    { first: 'Raghuraman', last: 'Swamy' }, { first: 'Sangeetha', last: 'Varadhan' }, { first: 'Thirunavukkarasu', last: 'Mudaliar' },
+    { first: 'Uma', last: 'Maheshwari' }, { first: 'Venkatesh', last: 'Prabhu' }, { first: 'Yashoda', last: 'Nandan' },
+    { first: 'Zahir', last: 'Hussain' }
+  ];
+
   for (let i = 11; i <= 60; i++) {
-    const first = firstNames[i % firstNames.length];
-    const last = lastNames[i % lastNames.length];
+    const nameObj = realNames[(i - 11) % realNames.length];
     const gender = i % 2 === 0 ? 'M' : 'F';
     const dept = i % 3 === 0 ? deptCutting : i % 2 === 0 ? deptFinishing : deptSewing;
     const grade = i % 5 === 0 ? gradeA : i % 2 === 0 ? gradeB : gradeC;
-    workerData.push({ code: `EMP-${i.toString().padStart(4, '0')}`, nfc: `NFC-AA${i.toString().padStart(4, '0')}`, first, last, gender, dept, grade });
+    workerData.push({
+      code: `EMP-${i.toString().padStart(4, '0')}`,
+      nfc: `NFC-AA${i.toString().padStart(4, '0')}`,
+      first: nameObj.first,
+      last: nameObj.last,
+      gender,
+      dept,
+      grade
+    });
   }
 
   const workers = [];

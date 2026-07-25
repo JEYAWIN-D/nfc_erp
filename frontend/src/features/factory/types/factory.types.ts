@@ -19,43 +19,43 @@ export const MACHINE_STATUS_META: Record<
 > = {
   running: {
     label: 'Running',
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/50',
+    glow: 'shadow-[0_0_14px_3px_rgba(16,185,129,0.28)]',
+    dot: 'bg-emerald-400',
+  },
+  idle: {
+    label: 'Assigned',
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/50',
+    glow: 'shadow-[0_0_12px_2px_rgba(59,130,246,0.22)]',
+    dot: 'bg-blue-400',
+  },
+  offline: {
+    label: 'Checked Out / Absent',
     color: 'text-red-400',
     bg: 'bg-red-500/10',
     border: 'border-red-500/50',
-    glow: 'shadow-[0_0_14px_3px_rgba(239,68,68,0.28)]',
-    dot: 'bg-red-500',
-  },
-  idle: {
-    label: 'Idle',
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-500/10',
-    border: 'border-emerald-500/50',
-    glow: 'shadow-[0_0_12px_2px_rgba(16,185,129,0.22)]',
-    dot: 'bg-emerald-400',
-  },
-  offline: {
-    label: 'Offline',
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/50',
-    glow: 'shadow-[0_0_12px_2px_rgba(245,158,11,0.22)]',
-    dot: 'bg-amber-400',
+    glow: 'shadow-[0_0_12px_2px_rgba(239,68,68,0.22)]',
+    dot: 'bg-red-400',
   },
   maintenance: {
-    label: 'Maintenance',
-    color: 'text-amber-400',
-    bg: 'bg-amber-500/10',
-    border: 'border-amber-500/50',
-    glow: 'shadow-[0_0_12px_2px_rgba(245,158,11,0.22)]',
-    dot: 'bg-amber-400',
+    label: 'Fault / Maintenance',
+    color: 'text-red-400',
+    bg: 'bg-red-500/10',
+    border: 'border-red-500/50',
+    glow: 'shadow-[0_0_12px_2px_rgba(239,68,68,0.22)]',
+    dot: 'bg-red-500',
   },
   no_worker: {
-    label: 'No Worker',
-    color: 'text-emerald-400',
-    bg: 'bg-emerald-500/10',
-    border: 'border-emerald-500/50',
+    label: 'Unassigned',
+    color: 'text-zinc-400',
+    bg: 'bg-zinc-800/40',
+    border: 'border-white/10',
     glow: '',
-    dot: 'bg-emerald-400',
+    dot: 'bg-zinc-600',
   },
 };
 
@@ -200,6 +200,10 @@ export interface Machine {
   roomId?: string;
   rowIndex?: number;
   positionIndex?: number;
+  // Enriched attendance context for Live Factory tooltip
+  attendanceState?: 'present' | 'checked_out' | 'assigned_not_present';
+  checkInTime?: string;
+  checkOutTime?: string;
 }
 
 // ─── Production Line ──────────────────────────────────────────────────────────

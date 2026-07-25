@@ -43,12 +43,12 @@ import {
 import type { NavItem } from "@/shared/types";
 
 const NAV_ITEMS: NavItem[] = [
-  { label: "Planning Dashboard", icon: LayoutDashboard, path: "/planning/center" },
-  { label: "Planning Board", icon: Kanban, path: "/planning/board" },
   { label: "Production Orders", icon: FileText, path: "/production-orders" },
+  { label: "Production Planning", icon: LayoutDashboard, path: "/planning/center" },
+  { label: "Planning Board", icon: Kanban, path: "/planning/board" },
+  { label: "Production Execution", icon: Zap, path: "/iot-demo" },
   { label: "Live Factory", icon: Factory, path: "/live-factory" },
-  { label: "IoT Demo Module", icon: Zap, path: "/iot-demo" },
-  { label: "Factory Layout", icon: Map, path: "/factory-layout" },
+  { label: "QC", icon: ShieldCheck, path: "/qc" },
   { label: "Departments", icon: Building2, path: "/departments" },
   { label: "Workers", icon: Users, path: "/workers" },
   { label: "Machines", icon: Cog, path: "/machines" },
@@ -59,7 +59,6 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Assignments", icon: ClipboardList, path: "/assignments" },
   { label: "Attendance", icon: ScanLine, path: "/attendance" },
   { label: "Bundles", icon: Layers, path: "/bundles" },
-  { label: "QC", icon: ShieldCheck, path: "/qc" },
   { label: "Tag & QC Workflow", icon: Tag, path: "/tag-workflow" },
   { label: "Reports", icon: BarChart3, path: "/reports" },
   { label: "Settings", icon: Settings, path: "/settings" },

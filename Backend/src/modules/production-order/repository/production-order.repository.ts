@@ -64,4 +64,14 @@ export class ProductionOrderRepository {
       data: { status }
     });
   }
+
+  async delete(id: number) {
+    // Cascading delete associated production tasks, stage logs, tags, qc logs, bundles, and order
+    await prisma.productionTask.deleteMany({ where: { productionOrderId: id } });
+    await prisma.bundleStageLog.deleteMany({ where: { bundle: { productionOrderId: id } } });
+    await prisma.bundleTagAssignment.deleteMany({ where: { bundle: { productionOrderId: id } } });
+    await prisma.qCCheckLog.deleteMany({ where: { bundle: { productionOrderId: id } } });
+    await prisma.bundle.deleteMany({ where: { productionOrderId: id } });
+    return prisma.productionOrder.delete({ where: { id } });
+  }
 }

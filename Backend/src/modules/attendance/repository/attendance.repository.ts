@@ -96,6 +96,16 @@ export class AttendanceRepository {
   async findByWorker(workerId: number) {
     return prisma.attendance.findMany({
       where: { workerId },
+      include: {
+        machine: true,
+        shift: true,
+        terminal: true,
+        assignment: {
+          include: {
+            operation: true,
+          }
+        }
+      },
       orderBy: { tapTime: "desc" },
     });
   }

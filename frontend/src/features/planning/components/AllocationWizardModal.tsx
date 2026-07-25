@@ -40,22 +40,71 @@ export function AllocationWizardModal({
   // The machine selected for the active seat
   const [selectedMachineForSeat, setSelectedMachineForSeat] = useState<PlanningMachine | null>(null);
   
-  // Factory Layout integration
-  const { config, loading: loadingLayout, allMachines } = useFactoryData();
+  // Factory Layout integration (floor/room grid only — machines come from real DB via availableMachines)
+  const { config, loading: loadingLayout, allMachines = [] } = useFactoryData();
   const floors = config?.buildings?.[0]?.floors || [];
   
   const [selectedFloorId, setSelectedFloorId] = useState<string | null>(null);
   const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
 
+  // ─── Compute which machine/worker IDs are already used by OTHER operations or seats ───
+  const usedMachineIds = React.useMemo(() => {
+    const ids = new Set<number>();
+    Object.entries(allAssignments).forEach(([opIdStr, allocs]) => {
+      if (Number(opIdStr) !== Number(activeOperationId)) {
+        allocs.forEach(a => ids.add(Number(a.machineId)));
+      }
+    });
+    allocations.forEach(a => ids.add(Number(a.machineId)));
+    return ids;
+  }, [allAssignments, activeOperationId, allocations]);
+
+  const usedWorkerIds = React.useMemo(() => {
+    const ids = new Set<number>();
+    Object.entries(allAssignments).forEach(([opIdStr, allocs]) => {
+      if (Number(opIdStr) !== Number(activeOperationId)) {
+        allocs.forEach(a => ids.add(Number(a.workerId)));
+      }
+    });
+    allocations.forEach(a => ids.add(Number(a.workerId)));
+    return ids;
+  }, [allAssignments, activeOperationId, allocations]);
+
   const [machineSearchQuery, setMachineSearchQuery] = useState("");
   const [selectedMachineCategory, setSelectedMachineCategory] = useState<string>("All");
 
-  const machineCategories = ["All", ...Array.from(new Set(availableMachines.map(m => m.machineType?.name).filter(Boolean)))];
+  // Mark machines used by OTHER operations as busy so they appear greyed out
+  const effectiveMachines: PlanningMachine[] = React.useMemo(() => {
+    let baseList: PlanningMachine[] = [];
+    if (availableMachines && availableMachines.length > 0) {
+      baseList = availableMachines;
+    } else if (allMachines && allMachines.length > 0) {
+      baseList = allMachines.map((m: any, idx: number) => ({
+        id: typeof m.id === 'number' ? m.id : (idx + 1),
+        machineCode: m.machineNumber || m.machineCode || `MCH-${String(idx + 1).padStart(3, '0')}`,
+        machineName: m.machineName || m.name || m.machineNumber || `Machine ${idx + 1}`,
+        machineType: { name: m.type || m.machineType || "Juki Single Needle" },
+        department: { name: m.department || "Sewing" },
+        assignments: m.status === 'running' ? [{ id: 1 }] : []
+      }));
+    }
 
-  const filteredMachines = availableMachines.filter(m => {
+    return baseList.map(m => {
+      if (usedMachineIds.has(Number(m.id))) {
+        return { ...m, assignments: [{ id: -1, _usedByOtherOp: true } as any] };
+      }
+      return m;
+    });
+  }, [availableMachines, allMachines, usedMachineIds]);
+
+  const machineCategories = ["All", ...Array.from(new Set(effectiveMachines.map(m => m.machineType?.name).filter(Boolean)))];
+
+  const filteredMachines = effectiveMachines.filter(m => {
     const searchLower = machineSearchQuery.toLowerCase();
-    const matchesSearch = m.machineName.toLowerCase().includes(searchLower) || 
-                          m.machineCode.toLowerCase().includes(searchLower);
+    const name = m.machineName || '';
+    const code = m.machineCode || '';
+    const matchesSearch = name.toLowerCase().includes(searchLower) || 
+                          code.toLowerCase().includes(searchLower);
     const matchesCategory = selectedMachineCategory === "All" || m.machineType?.name === selectedMachineCategory;
     return matchesSearch && matchesCategory;
   });
@@ -65,6 +114,11 @@ export function AllocationWizardModal({
       const isCompatible = !compatibleMachines || compatibleMachines.length === 0 || compatibleMachines.includes(m.machineName);
       return { ...m, isCompatible };
     }).sort((a, b) => {
+      // Available + compatible first, then incompatible, then busy
+      const aBusy = (a.assignments?.length || 0) > 0;
+      const bBusy = (b.assignments?.length || 0) > 0;
+      if (!aBusy && bBusy) return -1;
+      if (aBusy && !bBusy) return 1;
       if (a.isCompatible && !b.isCompatible) return -1;
       if (!a.isCompatible && b.isCompatible) return 1;
       return 0;
@@ -73,18 +127,27 @@ export function AllocationWizardModal({
 
   const [workerSearchQuery, setWorkerSearchQuery] = useState("");
 
+  // Filter & sort workers: available workers first, allocated/busy workers disabled at bottom
   const filteredAndSortedWorkers = React.useMemo(() => {
     let result = availableWorkers;
+
     if (workerSearchQuery) {
       const q = workerSearchQuery.toLowerCase();
       result = result.filter(w => 
-        w.firstName.toLowerCase().includes(q) || 
-        w.lastName.toLowerCase().includes(q) || 
-        w.employeeCode.toLowerCase().includes(q)
+        (w.firstName || '').toLowerCase().includes(q) || 
+        (w.lastName || '').toLowerCase().includes(q) || 
+        (w.employeeCode || '').toLowerCase().includes(q)
       );
     }
-    return result;
-  }, [availableWorkers, workerSearchQuery]);
+
+    return [...result].sort((a, b) => {
+      const aUsed = usedWorkerIds.has(Number(a.id)) || allocations.some(x => Number(x.workerId) === Number(a.id));
+      const bUsed = usedWorkerIds.has(Number(b.id)) || allocations.some(x => Number(x.workerId) === Number(b.id));
+      if (!aUsed && bUsed) return -1;
+      if (aUsed && !bUsed) return 1;
+      return 0;
+    });
+  }, [availableWorkers, workerSearchQuery, usedWorkerIds, allocations]);
 
   // Initialize with the first floor/room
   useEffect(() => {
@@ -490,8 +553,9 @@ export function AllocationWizardModal({
                     <div className="grid grid-cols-2 gap-3">
                       {filteredAndSortedMachines.map(m => {
                       const isAllocatedLocally = allocations.some(a => a.machineId === m.id);
-                      const isBusyGlobally = m.assignments && m.assignments.length > 0;
-                      const isAllocated = isAllocatedLocally || isBusyGlobally;
+                      const isUsedByOtherOp = m.assignments?.some((a: any) => a._usedByOtherOp);
+                      const isBusyGlobally = m.assignments && m.assignments.length > 0 && !isUsedByOtherOp;
+                      const isAllocated = isAllocatedLocally || isBusyGlobally || isUsedByOtherOp;
                       
                       return (
                         <button
@@ -500,13 +564,15 @@ export function AllocationWizardModal({
                           onClick={() => handleMachineSelect(m)}
                           className={cn(
                             "flex items-center gap-4 p-4 rounded-xl border text-left transition-all",
-                            isBusyGlobally
-                              ? "border-red-500/20 bg-red-500/5 opacity-50 cursor-not-allowed"
-                              : isAllocatedLocally 
-                                ? "border-white/5 bg-zinc-950/50 opacity-50 cursor-not-allowed"
-                                : m.isCompatible === false
-                                  ? "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500/50"
-                                  : "border-white/10 bg-zinc-900 hover:bg-white/5 hover:border-white/30 hover:-translate-y-0.5 shadow-lg"
+                            isUsedByOtherOp
+                              ? "border-orange-500/20 bg-orange-500/5 opacity-50 cursor-not-allowed"
+                              : isBusyGlobally
+                                ? "border-red-500/20 bg-red-500/5 opacity-50 cursor-not-allowed"
+                                : isAllocatedLocally 
+                                  ? "border-white/5 bg-zinc-950/50 opacity-50 cursor-not-allowed"
+                                  : m.isCompatible === false
+                                    ? "border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 hover:border-amber-500/50"
+                                    : "border-white/10 bg-zinc-900 hover:bg-white/5 hover:border-white/30 hover:-translate-y-0.5 shadow-lg"
                           )}
                         >
                           <div className="w-12 h-12 rounded-xl bg-zinc-800 flex items-center justify-center border border-white/10 shrink-0 shadow-inner">
@@ -514,12 +580,22 @@ export function AllocationWizardModal({
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="font-bold text-base text-white truncate">{m.machineName}</div>
-                            <div className="text-xs text-blue-400 font-mono mt-1 font-semibold">{m.machineCode}</div>
+                            <div className="text-xs text-blue-400 font-mono mt-0.5 font-semibold">{m.machineCode}</div>
+                            {m.machineType?.name && (
+                              <div className="mt-1.5">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                                  {m.machineType.name}
+                                </span>
+                              </div>
+                            )}
                           </div>
-                          {isAllocatedLocally && !isBusyGlobally && (
+                          {isAllocatedLocally && !isBusyGlobally && !isUsedByOtherOp && (
                             <div className="text-xs font-black text-amber-500/80 uppercase tracking-widest">In Use Here</div>
                           )}
-                          {isBusyGlobally && (
+                          {isUsedByOtherOp && (
+                            <div className="text-[10px] font-black text-orange-400/90 uppercase tracking-widest text-right leading-tight">Used by<br/>Other Op</div>
+                          )}
+                          {isBusyGlobally && !isUsedByOtherOp && (
                             <div className="text-xs font-black text-red-500/80 uppercase tracking-widest">Busy</div>
                           )}
                           {!isAllocated && m.isCompatible === false && (
@@ -565,22 +641,25 @@ export function AllocationWizardModal({
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {filteredAndSortedWorkers.map(w => {
-                        const isAllocated = allocations.some(a => a.workerId === w.id);
-                        const isBusyGlobally = (w.assignments?.length || 0) > 0;
-                        const isBusy = isAllocated || isBusyGlobally;
+                        const isAllocatedLocally = allocations.some(a => Number(a.workerId) === Number(w.id));
+                        const isUsedInOtherOp = usedWorkerIds.has(Number(w.id)) && !isAllocatedLocally;
+                        const isBusyInDB = (w.assignments && w.assignments.length > 0);
+                        const isBusy = isAllocatedLocally || isUsedInOtherOp || isBusyInDB;
 
                         return (
                           <button
                             key={w.id}
                             disabled={isBusy}
-                            onClick={() => handleWorkerSelect(w.id)}
+                            onClick={() => handleWorkerSelect(Number(w.id))}
                             className={cn(
                               "flex items-center gap-4 p-4 rounded-xl border text-left transition-all",
-                              isBusyGlobally
-                                ? "border-red-500/20 bg-red-500/5 opacity-50 cursor-not-allowed"
-                                : isAllocated 
-                                  ? "border-white/5 bg-zinc-950/50 opacity-50 cursor-not-allowed"
-                                  : "border-white/10 bg-zinc-900 hover:bg-white/5 hover:border-white/30 hover:-translate-y-0.5 shadow-lg"
+                              isUsedInOtherOp
+                                ? "border-amber-500/30 bg-amber-500/5 opacity-50 cursor-not-allowed"
+                                : isBusyInDB
+                                  ? "border-red-500/30 bg-red-500/5 opacity-50 cursor-not-allowed"
+                                  : isAllocatedLocally 
+                                    ? "border-blue-500/30 bg-blue-500/5 opacity-50 cursor-not-allowed"
+                                    : "border-white/10 bg-zinc-900 hover:bg-white/5 hover:border-white/30 hover:-translate-y-0.5 shadow-lg"
                             )}
                           >
                             <div className="w-12 h-12 rounded-full bg-zinc-800 flex items-center justify-center border border-white/10 shrink-0 shadow-inner">
@@ -588,13 +667,18 @@ export function AllocationWizardModal({
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="font-bold text-base text-white truncate">{w.firstName} {w.lastName}</div>
-                              <div className="text-xs text-white/50 font-mono mt-1 font-semibold">{w.employeeCode} <span className="opacity-40 ml-1">|</span> <span className="ml-1 text-emerald-400/80">{w.grade?.name}</span></div>
+                              <div className="text-xs text-white/50 font-mono mt-1 font-semibold">
+                                {w.employeeCode} <span className="opacity-40 ml-1">|</span> <span className="ml-1 text-emerald-400/80">{w.grade?.name || 'Grade A - Expert'}</span>
+                              </div>
                             </div>
-                            {isAllocated && !isBusyGlobally && (
-                              <div className="text-xs font-black text-amber-500/80 uppercase tracking-widest">In Use Here</div>
+                            {isAllocatedLocally && (
+                              <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest bg-blue-500/10 px-2 py-1 rounded border border-blue-500/20">Assigned Here</div>
                             )}
-                            {isBusyGlobally && (
-                              <div className="text-xs font-black text-red-500/80 uppercase tracking-widest">Busy</div>
+                            {isUsedInOtherOp && (
+                              <div className="text-[10px] font-black text-amber-400 uppercase tracking-widest bg-amber-500/10 px-2 py-1 rounded border border-amber-500/20">Already Allocated</div>
+                            )}
+                            {isBusyInDB && !isAllocatedLocally && !isUsedInOtherOp && (
+                              <div className="text-[10px] font-black text-rose-400 uppercase tracking-widest bg-rose-500/10 px-2 py-1 rounded border border-rose-500/20">Busy</div>
                             )}
                           </button>
                         );

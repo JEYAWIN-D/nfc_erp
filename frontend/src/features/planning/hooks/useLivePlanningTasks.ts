@@ -7,7 +7,9 @@ export const PLANNING_TASKS_KEY = ['planning', 'tasks'] as const;
 
 const LIVE_EVENTS = [
   'assignment.created', 'assignment.updated', 'assignment.released',
-  'bundle.updated'
+  'bundle.updated',
+  'attendance.updated', 'attendance.in', 'attendance.out', // ← NFC tap auto-moves task columns
+  'task.updated', 'dashboard.refresh',
 ];
 
 export function useLivePlanningTasks() {

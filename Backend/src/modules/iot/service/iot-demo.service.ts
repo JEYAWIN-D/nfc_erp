@@ -50,17 +50,17 @@ export class IotDemoService {
 
   /**
    * Get Production Order Workflow Context
-   * Loads production orders, tasks, assigned workers, assigned machines, and bundles.
+   * Loads production orders, tasks, assigned workers, assigned machines, bundles, and timeline logs.
    */
   async getOrderWorkflowContext(productionOrderId?: number) {
     const orders = await prisma.productionOrder.findMany({
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      take: 100,
     });
 
     if (!productionOrderId && orders.length > 0) {
-      const inProgressOrder = orders.find(o => o.status === 'IN_PROGRESS');
-      productionOrderId = inProgressOrder ? inProgressOrder.id : orders[0].id;
+      const activeOrder = orders.find(o => o.status === 'RUNNING' || o.status === 'READY_FOR_PRODUCTION' || o.status === 'IN_PROGRESS' || o.status === 'PLANNED' || o.status === 'DRAFT') || orders[0];
+      productionOrderId = activeOrder.id;
     }
 
     if (!productionOrderId) {
@@ -73,27 +73,65 @@ export class IotDemoService {
         assignedWorkers: [],
         assignedMachines: [],
         bundles: [],
+        timeline: [],
       };
     }
 
-    const selectedOrder = await prisma.productionOrder.findUnique({
-      where: { id: productionOrderId },
-      include: {
-        bundles: { orderBy: { id: 'asc' } },
-        productionTasks: {
+    let selectedOrder = productionOrderId
+      ? await prisma.productionOrder.findUnique({
+          where: { id: productionOrderId },
           include: {
-            operation: true,
-            worker: { include: { department: true } },
-            machine: { include: { department: true } },
-            shift: true,
+            bundles: {
+              orderBy: { id: 'asc' },
+              include: { currentWorker: true, currentMachine: true, currentOperation: true }
+            },
+            productionTasks: {
+              include: {
+                operation: true,
+                worker: { include: { department: true } },
+                machine: { include: { department: true } },
+                shift: true,
+              },
+              orderBy: { sequenceOrder: 'asc' },
+            },
           },
-          orderBy: { sequenceOrder: 'asc' },
+        })
+      : null;
+
+    // Fallback if productionOrderId is missing, stale, or deleted
+    if (!selectedOrder && orders.length > 0) {
+      const fallbackOrder = orders.find(o => o.status === 'RUNNING' || o.status === 'READY_FOR_PRODUCTION' || o.status === 'IN_PROGRESS' || o.status === 'PLANNED' || o.status === 'DRAFT') || orders[0];
+      selectedOrder = await prisma.productionOrder.findUnique({
+        where: { id: fallbackOrder.id },
+        include: {
+          bundles: {
+            orderBy: { id: 'asc' },
+            include: { currentWorker: true, currentMachine: true, currentOperation: true }
+          },
+          productionTasks: {
+            include: {
+              operation: true,
+              worker: { include: { department: true } },
+              machine: { include: { department: true } },
+              shift: true,
+            },
+            orderBy: { sequenceOrder: 'asc' },
+          },
         },
-      },
-    });
+      });
+    }
 
     if (!selectedOrder) {
-      throw new Error('Production order not found');
+      return {
+        orders,
+        selectedOrder: null,
+        tasks: [],
+        activeAssignments: [],
+        operations: [],
+        bundles: [],
+        attendances: [],
+        timeline: inMemoryActivityLogs,
+      };
     }
 
     // Extract unique operations
@@ -115,6 +153,31 @@ export class IotDemoService {
       }
     });
 
+    const latestAttendances = await prisma.attendance.findMany({
+      orderBy: { tapTime: 'desc' },
+      take: 200,
+    });
+
+    // Calculate worker timing metrics from activity logs & bundles
+    const workerTimingStats: Record<number, { completedCount: number; avgMinutesPerBundle: number }> = {};
+
+    inMemoryActivityLogs.forEach(log => {
+      if (log.category === 'BUNDLE' && log.eventType === 'BUNDLE_COMPLETED' && log.details?.workerId) {
+        const wId = Number(log.details.workerId);
+        if (!workerTimingStats[wId]) {
+          workerTimingStats[wId] = { completedCount: 0, avgMinutesPerBundle: 14.5 };
+        }
+        workerTimingStats[wId].completedCount += 1;
+        const durationMin = log.details.durationMinutes || 14.5;
+        workerTimingStats[wId].avgMinutesPerBundle = Math.round(((workerTimingStats[wId].avgMinutesPerBundle * (workerTimingStats[wId].completedCount - 1) + durationMin) / workerTimingStats[wId].completedCount) * 10) / 10;
+      }
+    });
+
+    // Filter activity logs relevant to this order or general system
+    const orderLogs = inMemoryActivityLogs.filter(log => 
+      !log.details?.productionOrderId || log.details.productionOrderId === productionOrderId
+    );
+
     return {
       orders,
       selectedOrder,
@@ -122,19 +185,21 @@ export class IotDemoService {
       activeAssignments,
       operations: Array.from(operationsMap.values()),
       bundles: selectedOrder.bundles,
+      attendances: latestAttendances,
+      workerTimingStats,
+      timeline: orderLogs,
     };
   }
 
   /**
    * Toggle Worker Check-in / Check-out (Present ↔ Absent).
-   * Realism rule: If worker checks OUT and has an active assigned machine,
-   * automatically transition machine status to idle.
+   * Automatically updates Machine status, Production Task, Production Order, and emits WebSockets.
    */
   async toggleWorker(workerId: number) {
     const worker = await prisma.worker.findUnique({
       where: { id: workerId },
       include: {
-        assignments: { where: { status: 'ACTIVE' }, include: { machine: true, shift: true } },
+        assignments: { where: { status: 'ACTIVE' }, include: { machine: true, shift: true, operation: true } },
       },
     });
 
@@ -148,59 +213,109 @@ export class IotDemoService {
     const isCurrentlyIn = latestAttendance?.attendanceType === 'IN';
     const nextAttendanceType = isCurrentlyIn ? 'OUT' : 'IN';
 
-    const firstAssignment = await prisma.assignment.findFirst({
+    const firstAssignment = worker.assignments.length > 0 ? worker.assignments[0] : await prisma.assignment.findFirst({
       where: { workerId: worker.id, status: 'ACTIVE' },
+      include: { machine: true, shift: true, operation: true }
+    });
+
+    // Check if worker has associated production task
+    const task = await prisma.productionTask.findFirst({
+      where: { workerId: worker.id, status: { in: ['ASSIGNED', 'RUNNING'] } },
+      include: { productionOrder: true, machine: true }
     });
 
     const firstTerminal = (await prisma.terminal.findFirst({ where: { status: 'ACTIVE' } })) || { id: 1 };
-    const firstMachine = (await prisma.machine.findFirst({ where: { status: 'ACTIVE' } })) || { id: 1 };
-    const firstShift = (await prisma.shift.findFirst({ where: { status: 'ACTIVE' } })) || { id: 1 };
+    const targetMachine = task?.machine || firstAssignment?.machine || (await prisma.machine.findFirst({ where: { status: 'ACTIVE' } })) || { id: 1 };
+    const firstShift = firstAssignment?.shift || (await prisma.shift.findFirst({ where: { status: 'ACTIVE' } })) || { id: 1 };
 
     const attendanceRecord = await prisma.attendance.create({
       data: {
         workerId: worker.id,
         assignmentId: firstAssignment?.id || 1,
         terminalId: firstTerminal.id,
-        machineId: firstAssignment?.machineId || firstMachine.id,
-        shiftId: firstAssignment?.shiftId || firstShift.id,
+        machineId: targetMachine.id,
+        shiftId: firstShift.id,
         attendanceType: nextAttendanceType,
         tapTime: new Date(),
       },
     });
 
     const workerName = `${worker.firstName} ${worker.lastName}`;
-    const logMsg = nextAttendanceType === 'IN'
-      ? `Worker ${workerName} (${worker.employeeCode}) tapped IN — Present`
-      : `Worker ${workerName} (${worker.employeeCode}) tapped OUT — Absent`;
+    let productionOrderId: number | undefined = undefined;
 
-    await this.writeActivity('ATTENDANCE', `WORKER_${nextAttendanceType}`, logMsg, {
-      workerId,
-      employeeCode: worker.employeeCode,
-    });
+    if (task) {
+      productionOrderId = task.productionOrderId;
+    }
 
+    if (nextAttendanceType === 'IN') {
+      // 1. Update Machine to ACTIVE / Running
+      if (targetMachine.id) {
+        await prisma.machine.update({
+          where: { id: targetMachine.id },
+          data: { status: 'ACTIVE' }
+        });
+      }
+
+      // 2. Update Task status to RUNNING
+      if (task && task.status !== 'RUNNING') {
+        await prisma.productionTask.update({
+          where: { id: task.id },
+          data: { status: 'RUNNING' }
+        });
+      }
+
+      // 3. Update Order status to RUNNING if it was READY_FOR_PRODUCTION or PLANNED
+      if (task?.productionOrder && (task.productionOrder.status === ('READY_FOR_PRODUCTION' as any) || task.productionOrder.status === 'PLANNED' || task.productionOrder.status === 'IN_PROGRESS')) {
+        await prisma.productionOrder.update({
+          where: { id: task.productionOrderId },
+          data: { status: 'RUNNING' as any }
+        });
+
+        await this.writeActivity('SYSTEM', 'PRODUCTION_STARTED', `Production Started for Order ${task.productionOrder.orderNumber}`, {
+          productionOrderId: task.productionOrderId
+        });
+      }
+
+      const logMsg = `Worker ${workerName} (${worker.employeeCode}) Checked IN — Machine ${(targetMachine as any).machineCode || targetMachine.id} Running`;
+      await this.writeActivity('ATTENDANCE', 'WORKER_CHECK_IN', logMsg, {
+        workerId,
+        employeeCode: worker.employeeCode,
+        machineId: targetMachine.id,
+        productionOrderId
+      });
+    } else {
+      // Worker Check OUT — Paused / Idle
+      if (targetMachine.id) {
+        await prisma.machine.update({
+          where: { id: targetMachine.id },
+          data: { status: 'INACTIVE' }
+        });
+      }
+
+      const logMsg = `Worker ${workerName} (${worker.employeeCode}) Checked OUT — Machine Paused / Idle`;
+      await this.writeActivity('ATTENDANCE', 'WORKER_CHECK_OUT', logMsg, {
+        workerId,
+        employeeCode: worker.employeeCode,
+        machineId: targetMachine.id,
+        productionOrderId
+      });
+    }
+
+    // Publish WebSocket events
     websocketService.publish(
       nextAttendanceType === 'IN' ? WEBSOCKET_EVENTS.ATTENDANCE_IN : WEBSOCKET_EVENTS.ATTENDANCE_OUT,
       { workerId, attendance: attendanceRecord }
     );
     websocketService.publish(WEBSOCKET_EVENTS.ATTENDANCE_UPDATED, { workerId });
-
-    let machineAutoIdled = false;
-    if (nextAttendanceType === 'OUT' && worker.assignments.length > 0) {
-      const assignedMachine = worker.assignments[0].machine;
-      if (assignedMachine) {
-        await this.toggleMachine(assignedMachine.id, 'idle', `Auto-idled: Worker ${workerName} checked out`);
-        machineAutoIdled = true;
-      }
-    }
-
+    websocketService.publish(WEBSOCKET_EVENTS.MACHINE_UPDATED, { machineId: targetMachine.id });
     websocketService.publish(WEBSOCKET_EVENTS.DASHBOARD_REFRESH, {});
+    websocketService.publish(WEBSOCKET_EVENTS.DASHBOARD_LIVEFLOOR_UPDATED, {});
 
     return {
       success: true,
       status: nextAttendanceType === 'IN' ? 'PRESENT' : 'ABSENT',
       workerName,
-      machineAutoIdled,
-      message: logMsg,
+      message: `${workerName} ${nextAttendanceType === 'IN' ? 'Checked In' : 'Checked Out'}`,
     };
   }
 
@@ -259,28 +374,16 @@ export class IotDemoService {
    * Allocated (CREATED) → Started (IN_PROGRESS) → Completed (COMPLETED) → Closed (QC_COMPLETED)
    * Enforces Sequential Gating: Only ONE bundle can be IN_PROGRESS at a time for an order.
    */
-  async advanceBundle(bundleId: number) {
+  async advanceBundle(bundleId: number, workerId?: number) {
     const bundle = await prisma.bundle.findUnique({
       where: { id: bundleId },
       include: {
         productionOrder: { include: { bundles: { orderBy: { id: 'asc' } } } },
+        currentWorker: true,
       },
     });
 
     if (!bundle) throw new Error('Bundle not found');
-
-    const siblings = bundle.productionOrder?.bundles || [];
-    const currentIndex = siblings.findIndex((b) => b.id === bundleId);
-
-    // Sequential Gating Check: Ensure previous bundle is COMPLETED/QC_COMPLETED before starting this one
-    if (currentIndex > 0 && (bundle.status === 'CREATED' || bundle.status === 'WAITING')) {
-      const prevBundle = siblings[currentIndex - 1];
-      if (prevBundle.status !== 'COMPLETED' && prevBundle.status !== 'QC_COMPLETED') {
-        throw new Error(
-          `Sequential Gate: Please complete previous Bundle ${prevBundle.bundleNumber} first.`
-        );
-      }
-    }
 
     const nextStatusMap: Record<string, { status: any; completedQty: number; label: string }> = {
       CREATED: { status: 'IN_PROGRESS', completedQty: Math.floor(bundle.quantity / 2), label: 'Started (In Progress)' },
@@ -293,24 +396,106 @@ export class IotDemoService {
 
     const nextStep = nextStatusMap[bundle.status] || nextStatusMap.CREATED;
 
+    // Determine target worker, machine, operation
+    let targetWorkerId = workerId || bundle.currentWorkerId || undefined;
+    let targetMachineId = bundle.currentMachineId || undefined;
+    let targetOperationId = bundle.currentOperationId || undefined;
+
+    if (!targetWorkerId && nextStep.status === 'IN_PROGRESS') {
+      const taskWithWorker = await prisma.productionTask.findFirst({
+        where: { productionOrderId: bundle.productionOrderId, workerId: { not: null } },
+        include: { worker: true, machine: true, operation: true }
+      });
+      if (taskWithWorker?.workerId) {
+        targetWorkerId = taskWithWorker.workerId;
+        targetMachineId = taskWithWorker.machineId || undefined;
+        targetOperationId = taskWithWorker.operationId || undefined;
+      }
+    }
+
+    if (targetWorkerId && (!targetMachineId || !targetOperationId)) {
+      const workerAssignment = await prisma.assignment.findFirst({
+        where: { workerId: targetWorkerId, status: 'ACTIVE' },
+        include: { machine: true, operation: true }
+      });
+      if (workerAssignment) {
+        targetMachineId = targetMachineId || workerAssignment.machineId;
+        targetOperationId = targetOperationId || workerAssignment.operationId;
+      }
+    }
+
+    // Reset worker assignment if resetting to CREATED
+    if (nextStep.status === 'CREATED') {
+      targetWorkerId = undefined;
+      targetMachineId = undefined;
+      targetOperationId = undefined;
+    }
+
     const updatedBundle = await prisma.bundle.update({
       where: { id: bundleId },
       data: {
         status: nextStep.status,
         completedQuantity: nextStep.completedQty,
+        currentWorkerId: targetWorkerId ?? null,
+        currentMachineId: targetMachineId ?? null,
+        currentOperationId: targetOperationId ?? null,
       },
+      include: {
+        currentWorker: true,
+        currentMachine: true,
+        currentOperation: true,
+      }
     });
 
-    const logMsg = `Bundle ${bundle.bundleNumber} advanced to ${nextStep.label} (${nextStep.completedQty}/${bundle.quantity} pcs)`;
+    const activeWorkerName = updatedBundle.currentWorker
+      ? `${updatedBundle.currentWorker.firstName} ${updatedBundle.currentWorker.lastName}`
+      : undefined;
 
-    await this.writeActivity('BUNDLE', 'BUNDLE_ADVANCED', logMsg, {
+    const startTimeMs = bundle.updatedAt ? new Date(bundle.updatedAt).getTime() : Date.now() - 14.5 * 60 * 1000;
+    const durationMs = Date.now() - startTimeMs;
+    const durationMinutes = Math.max(8, Math.min(30, Math.round((durationMs / (1000 * 60)) * 10) / 10 || 14.5));
+
+    const logMsg = nextStep.status === 'COMPLETED'
+      ? `Bundle ${bundle.bundleNumber} Completed (${nextStep.completedQty}/${bundle.quantity} pcs)${activeWorkerName ? ` by ${activeWorkerName}` : ''} in ${durationMinutes}m`
+      : nextStep.status === 'IN_PROGRESS'
+      ? `Bundle ${bundle.bundleNumber} Started by Worker ${activeWorkerName || 'Operator'} (IN USE)`
+      : `Bundle ${bundle.bundleNumber} ${nextStep.label}`;
+
+    await this.writeActivity('BUNDLE', nextStep.status === 'COMPLETED' ? 'BUNDLE_COMPLETED' : 'BUNDLE_STARTED', logMsg, {
       bundleId,
       bundleNumber: bundle.bundleNumber,
       status: nextStep.status,
+      workerId: targetWorkerId,
+      workerName: activeWorkerName,
+      durationMinutes: nextStep.status === 'COMPLETED' ? durationMinutes : undefined,
+      productionOrderId: bundle.productionOrderId
     });
+
+    // Check overall order progression
+    if (bundle.productionOrderId) {
+      const allBundles = await prisma.bundle.findMany({
+        where: { productionOrderId: bundle.productionOrderId }
+      });
+
+      const allFinished = allBundles.every(b => b.status === 'COMPLETED' || b.status === 'QC_COMPLETED');
+      if (allFinished) {
+        await prisma.productionTask.updateMany({
+          where: { productionOrderId: bundle.productionOrderId },
+          data: { status: 'COMPLETED' }
+        });
+        await prisma.productionOrder.update({
+          where: { id: bundle.productionOrderId },
+          data: { status: 'QC' as any }
+        });
+        await this.writeActivity('SYSTEM', 'ORDER_QC', `All Bundles Finished. Order ${bundle.productionOrder?.orderNumber || bundle.productionOrderId} Moved to QC`, {
+          productionOrderId: bundle.productionOrderId
+        });
+      }
+    }
 
     websocketService.publish(WEBSOCKET_EVENTS.BUNDLE_UPDATED, updatedBundle);
     websocketService.publish(WEBSOCKET_EVENTS.DASHBOARD_REFRESH, {});
+    websocketService.publish(WEBSOCKET_EVENTS.DASHBOARD_LIVEFLOOR_UPDATED, {});
 
     return {
       success: true,

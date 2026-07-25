@@ -89,7 +89,7 @@ export function AppRouter() {
           <Route path="/planning/board" element={<PlanningBoardPage />} />
           <Route path="/live-factory" element={<LiveFactoryPage />} />
           <Route path="/iot-demo" element={<ModularIotDemoPage />} />
-          <Route path="/factory-layout" element={<FactoryLayoutPage />} />
+          <Route path="/factory-layout" element={<Navigate to="/live-factory" replace />} />
           <Route path="/departments" element={<DepartmentManagement />} />
           <Route path="/workers" element={<WorkersPage />} />
           <Route path="/machines" element={<MachinesPage />} />

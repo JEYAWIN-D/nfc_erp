@@ -25,8 +25,8 @@ export const iotDemoApiService = {
     return res.data.data;
   },
 
-  async advanceBundle(bundleId: number): Promise<AdvanceBundleResponse> {
-    const res = await api.post('/iot/demo/bundle/advance', { bundleId });
+  async advanceBundle(bundleId: number, workerId?: number): Promise<AdvanceBundleResponse> {
+    const res = await api.post('/iot/demo/bundle/advance', { bundleId, workerId });
     return res.data.data;
   },
 

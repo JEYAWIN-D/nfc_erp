@@ -7,13 +7,15 @@ import {
   Activity,
   RotateCcw,
   Wifi,
-  SlidersHorizontal,
   CheckCircle2,
   AlertTriangle,
   FileText,
   Wrench,
   Percent,
+  ArrowLeft,
+  Play,
 } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useIotDemoStore } from './store/iot-demo.store';
@@ -22,11 +24,11 @@ import { WorkerDemoCard } from './components/WorkerDemoCard';
 import { MachineDemoCard } from './components/MachineDemoCard';
 import { BundleDemoCard } from './components/BundleDemoCard';
 import { DemoActivityLog } from './components/DemoActivityLog';
+import { WorkerAttendanceModal } from './components/WorkerAttendanceModal';
 
 export default function IotDemoPage() {
+  const navigate = useNavigate();
   const {
-    hardwareMode,
-    setHardwareMode,
     selectedOrderId,
     setSelectedOrderId,
     activeOperationId,
@@ -41,6 +43,7 @@ export default function IotDemoPage() {
     operations,
     bundles,
     attendances,
+    workerTimingStats = {},
     isLoading,
     toggleWorker,
     isTogglingWorker,
@@ -53,16 +56,18 @@ export default function IotDemoPage() {
   } = useIotDemo();
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [togglingWorkerId, setTogglingWorkerId] = useState<number | null>(null);
+  const [activeModalWorker, setActiveModalWorker] = useState<any | null>(null);
+  const [optimisticAttendanceMap, setOptimisticAttendanceMap] = useState<Record<number, { attendanceType: string; tapTime: string }>>({});
 
-  // Set default active operation if none selected
-  const activeOpId = activeOperationId || (operations.length > 0 ? operations[0].id : null);
+  // Filter tasks strictly for current order & selected operation ('ALL' or specific op)
+  const activeOpId = activeOperationId ?? 'ALL';
 
-  // Filter tasks for current operation
-  const activeTasks = activeOpId
-    ? tasks.filter((t: any) => t.operationId === activeOpId)
-    : tasks;
+  const activeTasks = activeOpId === 'ALL'
+    ? tasks.filter((t: any) => !selectedOrderId || t.productionOrderId === selectedOrderId)
+    : tasks.filter((t: any) => t.operationId === activeOpId && (!selectedOrderId || t.productionOrderId === selectedOrderId));
 
-  // Extract assigned workers & machines for active operation
+  // Extract assigned workers & machines from tasks and activeAssignments
   const assignedWorkerMap = new Map<number, any>();
   const assignedMachineMap = new Map<number, any>();
 
@@ -71,36 +76,41 @@ export default function IotDemoPage() {
     if (t.machine) assignedMachineMap.set(t.machine.id, t.machine);
   });
 
-  // Also include activeAssignments from context if tasks didn't have worker/machine directly attached
-  const activeAssignments = (context as any)?.activeAssignments || [];
-  activeAssignments.forEach((a: any) => {
-    if (a.worker && (!activeOpId || a.operationId === activeOpId)) {
-      assignedWorkerMap.set(a.worker.id, a.worker);
-    }
-    if (a.machine && (!activeOpId || a.operationId === activeOpId)) {
-      assignedMachineMap.set(a.machine.id, a.machine);
-    }
-  });
-
-  // Fallback to all order tasks and all active assignments if specific operation has none
-  if (assignedWorkerMap.size === 0) {
-    tasks.forEach((t: any) => {
-      if (t.worker) assignedWorkerMap.set(t.worker.id, t.worker);
-      if (t.machine) assignedMachineMap.set(t.machine.id, t.machine);
-    });
+  const activeAssignments = (useIotDemoStore.getState() as any)?.activeAssignments || [];
+  if (Array.isArray(activeAssignments)) {
     activeAssignments.forEach((a: any) => {
-      if (a.worker) assignedWorkerMap.set(a.worker.id, a.worker);
-      if (a.machine) assignedMachineMap.set(a.machine.id, a.machine);
+      if (activeOpId === 'ALL' || a.operationId === activeOpId) {
+        if (a.worker) assignedWorkerMap.set(a.worker.id, a.worker);
+        if (a.machine) assignedMachineMap.set(a.machine.id, a.machine);
+      }
     });
   }
 
-  const assignedWorkersList = Array.from(assignedWorkerMap.values());
-  const assignedMachinesList = Array.from(assignedMachineMap.values());
+  const assignedWorkersList = Array.from(assignedWorkerMap.values()).sort((a: any, b: any) => a.id - b.id);
+  const assignedMachinesList = Array.from(assignedMachineMap.values()).sort((a: any, b: any) => a.id - b.id);
 
-  // Attendance lookup: get latest attendance record per worker
+  // Attendance lookup: get latest attendance record per worker for current order session
   const getLatestWorkerAttendance = (workerId: number) => {
-    if (!Array.isArray(attendances)) return null;
-    return attendances.find((a: any) => a.workerId === workerId) || null;
+    if (optimisticAttendanceMap[workerId]) {
+      return optimisticAttendanceMap[workerId];
+    }
+    if (!Array.isArray(attendances) || attendances.length === 0) return null;
+    const orderCreatedAt = selectedOrder?.createdAt ? new Date(selectedOrder.createdAt).getTime() : 0;
+    
+    const workerRecords = attendances.filter((a: any) => {
+      if (Number(a.workerId) !== Number(workerId)) return false;
+      const recTime = new Date(a.tapTime || a.createdAt || 0).getTime();
+      return orderCreatedAt === 0 || recTime >= orderCreatedAt - 120000;
+    });
+
+    if (workerRecords.length === 0) return null;
+    return workerRecords.reduce((latest: any, current: any) => {
+      const latestTime = new Date(latest.tapTime || latest.createdAt || 0).getTime();
+      const currentTime = new Date(current.tapTime || current.createdAt || 0).getTime();
+      if (currentTime > latestTime) return current;
+      if (currentTime === latestTime && (current.id || 0) > (latest.id || 0)) return current;
+      return latest;
+    }, workerRecords[0]);
   };
 
   // Stats calculation
@@ -120,18 +130,40 @@ export default function IotDemoPage() {
   const totalTargetPcs = selectedOrder?.plannedQuantity || selectedOrder?.targetQuantity || 100;
   const completionPercent = Math.min(100, Math.round((totalCompletedPcs / totalTargetPcs) * 100));
 
+  const setSearchParams = useSearchParams()[1];
+
   // Handlers
   const handleOrderChange = (orderId: number) => {
     setSelectedOrderId(orderId);
     setActiveOperationId(null);
+    setSearchParams({ orderId: String(orderId) });
   };
 
   const handleToggleWorker = (workerId: number) => {
+    const currentAtt = getLatestWorkerAttendance(workerId);
+    const isCurrentlyIn = currentAtt?.attendanceType === 'IN';
+    const nextType = isCurrentlyIn ? 'OUT' : 'IN';
+    const tapTime = new Date().toISOString();
+
+    // Instant optimistic state update
+    setOptimisticAttendanceMap(prev => ({
+      ...prev,
+      [workerId]: { attendanceType: nextType, tapTime }
+    }));
+
+    setTogglingWorkerId(workerId);
     toggleWorker(workerId, {
       onSuccess: (res: any) => {
+        setTogglingWorkerId(null);
         toast.success(res.message || 'Worker presence updated');
       },
       onError: (err: any) => {
+        setTogglingWorkerId(null);
+        setOptimisticAttendanceMap(prev => {
+          const next = { ...prev };
+          delete next[workerId];
+          return next;
+        });
         toast.error(err.message || 'Worker toggle failed');
       },
     });
@@ -152,15 +184,24 @@ export default function IotDemoPage() {
     );
   };
 
-  const handleAdvanceBundle = (bundleId: number) => {
-    advanceBundle(bundleId, {
-      onSuccess: (res: any) => {
-        toast.success(res.message || 'Bundle stage advanced');
-      },
-      onError: (err: any) => {
-        toast.error(err.message || 'Sequential Gate: Complete previous bundle first');
-      },
-    });
+  const presentWorkersList = assignedWorkersList.filter((w) => {
+    const latest = getLatestWorkerAttendance(w.id);
+    return latest?.attendanceType === 'IN';
+  });
+
+  const handleAdvanceBundle = (bundleId: number, workerId?: number) => {
+    advanceBundle(
+      { bundleId, workerId },
+      {
+        onSuccess: (res: any) => {
+          toast.success(res?.data?.message || res?.message || 'Bundle stage advanced');
+        },
+        onError: (err: any) => {
+          const errorMsg = err.response?.data?.error || err.response?.data?.message || err.message || 'Sequential Gate: Complete previous bundle first';
+          toast.error(errorMsg);
+        },
+      }
+    );
   };
 
   const handleResetDemo = () => {
@@ -178,72 +219,100 @@ export default function IotDemoPage() {
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-white" style={{ height: 'calc(100vh - 56px)' }}>
       {/* ── Header Bar ── */}
-      <header className="shrink-0 border-b border-white/8 bg-zinc-900/80 backdrop-blur px-6 py-3 flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2.5 rounded-xl shadow-lg shadow-emerald-950/40">
-            <Zap className="w-5 h-5 text-white" />
+      <header className="shrink-0 border-b border-white/[0.08] bg-zinc-900/80 backdrop-blur px-4 py-2.5 flex items-center justify-between gap-4">
+        {/* Left: Back + Title */}
+        <div className="flex items-center gap-3 min-w-0">
+          <button
+            onClick={() => navigate(-1)}
+            className="p-2 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors shrink-0"
+            title="Back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </button>
+          <div className="w-px h-6 bg-white/10 shrink-0" />
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-600 p-2 rounded-xl shadow-lg shadow-emerald-950/40 shrink-0">
+            <Play className="w-4 h-4 text-white fill-white" />
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold text-white tracking-tight">IoT Production Workflow Demo</h1>
-              <span className="text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/25 uppercase">
-                Order Driven
-              </span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="text-sm font-extrabold text-white tracking-tight">Production Execution Console</h1>
+              <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/25">
+                <Wifi className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider">Live</span>
+              </div>
             </div>
-            <p className="text-[11px] text-white/40">
-              Live Order Execution • Worker NFC Check-In • Machine Status • Sequential Bundles
+            <p className="text-[10px] text-white/40 mt-0.5 truncate">
+              Worker NFC Check-In · Machine Auto-Sync · Sequential Bundles · Real-Time Floor Sync
             </p>
           </div>
         </div>
 
-        {/* Center: Production Order Dropdown */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 bg-zinc-950 px-3 py-1.5 rounded-xl border border-white/10">
-            <FileText className="w-4 h-4 text-emerald-400" />
-            <span className="text-xs font-semibold text-white/50">Order:</span>
-            <select
-              value={selectedOrder?.id || ''}
-              onChange={(e) => handleOrderChange(Number(e.target.value))}
-              className="bg-zinc-900 border border-white/10 rounded-lg px-3 py-1 text-xs text-white font-bold font-mono appearance-none cursor-pointer focus:outline-none focus:border-emerald-500 transition-all"
-            >
-              {orders.map((po: any) => (
-                <option key={po.id} value={po.id}>
-                  {po.orderNumber} — {po.styleName || po.styleNumber || 'Style'} ({po.plannedQuantity || 100} Pcs)
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Mode Switcher */}
-          <div className="flex items-center gap-2 bg-zinc-950 px-3 py-1.5 rounded-xl border border-white/10">
-            <SlidersHorizontal className="w-3.5 h-3.5 text-blue-400" />
-            <select
-              value={hardwareMode}
-              onChange={(e) => setHardwareMode(e.target.value as any)}
-              className="bg-zinc-900 border border-white/10 rounded-lg px-2.5 py-1 text-xs text-white font-medium appearance-none cursor-pointer focus:outline-none focus:border-blue-500"
-            >
-              <option value="SIMULATOR">Virtual Simulator</option>
-              <option value="HARDWARE_MQTT">MQTT Stream (Hardware)</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Right Action Controls */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-emerald-500/20 bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-            <Wifi className="w-3 h-3 animate-pulse" />
-            Live Floor Sync
-          </div>
-
-          <button
-            onClick={() => setShowResetConfirm(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 text-xs font-bold transition-all active:scale-95"
+        {/* Center: Order Selector with Style Name First */}
+        <div className="flex items-center gap-2 bg-zinc-950 px-3 py-1.5 rounded-xl border border-white/10">
+          <FileText className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+          <span className="text-xs font-semibold text-white/50 shrink-0">Order:</span>
+          <select
+            value={selectedOrder?.id || ''}
+            onChange={(e) => handleOrderChange(Number(e.target.value))}
+            className="bg-transparent text-xs text-white font-bold font-mono appearance-none cursor-pointer focus:outline-none max-w-[240px]"
           >
-            <RotateCcw className="w-3.5 h-3.5" />
-            Reset Order
-          </button>
+            {orders.map((po: any) => {
+              const customer = po.buyerName || po.customerName || 'Customer';
+              const style = po.styleName || po.styleNumber || 'Style';
+              return (
+                <option key={po.id} value={po.id} className="bg-zinc-900">
+                  {customer} — {style} ({po.orderNumber})
+                </option>
+              );
+            })}
+          </select>
         </div>
+
+        {/* Right: Reset */}
+        <button
+          onClick={() => setShowResetConfirm(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 text-xs font-bold transition-all active:scale-95 shrink-0"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+          Reset
+        </button>
       </header>
+
+      {/* ── Order Context Banner with Customer Name Prominent ── */}
+      {selectedOrder && (
+        <div className="shrink-0 bg-zinc-900/60 border-b border-white/[0.06] px-4 py-2 flex items-center gap-4 flex-wrap">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider shrink-0">Customer</span>
+            <span className="text-sm font-extrabold text-cyan-400 shrink-0">
+              {(selectedOrder as any).buyerName || (selectedOrder as any).customerName || 'Customer'}
+            </span>
+            <span className="text-white/20">·</span>
+            <span className="text-xs text-white/70 font-semibold truncate">
+              {(selectedOrder as any).styleName || (selectedOrder as any).styleNumber || 'Style'}
+            </span>
+            <span className="text-white/20">·</span>
+            <span className="text-xs text-white/40 font-mono shrink-0">{(selectedOrder as any).orderNumber}</span>
+          </div>
+          <div className="flex items-center gap-1.5 ml-auto shrink-0">
+            {(selectedOrder as any).status === 'RUNNING' || (selectedOrder as any).status === 'running' ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Production Running
+              </span>
+            ) : (selectedOrder as any).status === 'READY_FOR_PRODUCTION' || (selectedOrder as any).status === 'ready_for_production' ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 text-[10px] font-bold uppercase tracking-wider">
+                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                Ready for Production
+              </span>
+            ) : (selectedOrder as any).status === 'QC' || (selectedOrder as any).status === 'qc' ? (
+              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[10px] font-bold uppercase tracking-wider">
+                <CheckCircle2 className="w-3 h-3 text-amber-400" />
+                QC Pending
+              </span>
+            ) : null}
+          </div>
+        </div>
+      )}
 
       {/* ── Order Metrics Progress Bar ── */}
       <div className="bg-zinc-900/40 border-b border-white/8 px-6 py-3 grid grid-cols-2 md:grid-cols-4 gap-4 shrink-0">
@@ -319,12 +388,23 @@ export default function IotDemoPage() {
                 <Wrench className="w-3.5 h-3.5 text-emerald-400" />
                 Operations:
               </span>
+              <button
+                onClick={() => setActiveOperationId('ALL')}
+                className={cn(
+                  'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border whitespace-nowrap cursor-pointer',
+                  activeOpId === 'ALL'
+                    ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300 shadow-md shadow-emerald-950/30'
+                    : 'bg-zinc-900/60 border-white/5 text-white/40 hover:text-white hover:bg-zinc-900'
+                )}
+              >
+                All Operations ({tasks.length})
+              </button>
               {operations.map((op: any) => (
                 <button
                   key={op.id}
                   onClick={() => setActiveOperationId(op.id)}
                   className={cn(
-                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border whitespace-nowrap',
+                    'px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all border whitespace-nowrap cursor-pointer',
                     activeOpId === op.id
                       ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300 shadow-md shadow-emerald-950/30'
                       : 'bg-zinc-900/60 border-white/5 text-white/40 hover:text-white hover:bg-zinc-900'
@@ -357,7 +437,12 @@ export default function IotDemoPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
                   {assignedWorkersList.map((w: any) => {
                     const latestAttendance = getLatestWorkerAttendance(w.id);
+                    const isCheckedIn = latestAttendance?.attendanceType === 'IN';
                     const matchingTask = activeTasks.find((t: any) => t.workerId === w.id);
+                    const orderStatus = (selectedOrder as any)?.status;
+                    const orderIsCompleted = orderStatus === 'QC' || orderStatus === 'qc' || orderStatus === 'COMPLETED' || orderStatus === 'completed' || matchingTask?.status === 'COMPLETED';
+                    const activeWorkerBundle = bundles.find((b: any) => b.currentWorkerId === w.id && b.status === 'IN_PROGRESS');
+
                     return (
                       <WorkerDemoCard
                         key={w.id}
@@ -365,8 +450,11 @@ export default function IotDemoPage() {
                         latestAttendance={latestAttendance}
                         operationName={matchingTask?.operation?.operationName}
                         machineCode={matchingTask?.machine?.machineCode}
-                        onToggle={() => handleToggleWorker(w.id)}
-                        isLoading={isTogglingWorker}
+                        activeBundleNumber={activeWorkerBundle?.bundleNumber}
+                        avgMinutesPerBundle={workerTimingStats[w.id]?.avgMinutesPerBundle || 14.5}
+                        isCompleted={orderIsCompleted}
+                        onOpenModal={() => setActiveModalWorker(w)}
+                        isLoading={togglingWorkerId === w.id}
                       />
                     );
                   })}
@@ -393,10 +481,12 @@ export default function IotDemoPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
                   {assignedMachinesList.map((m: any) => {
                     const isRunning = m.status === 'ACTIVE' || (m.status as string) === 'running';
-                    const matchingTask = activeTasks.find((t: any) => t.machineId === m.id);
-                    const workerLatestAttendance = matchingTask?.workerId ? getLatestWorkerAttendance(matchingTask.workerId) : null;
+                    const assignedWorker = activeTasks.find((t: any) => t.machineId === m.id)?.worker
+                      || activeAssignments.find((a: any) => a.machineId === m.id)?.worker
+                      || tasks.find((t: any) => t.machineId === m.id)?.worker;
+
+                    const workerLatestAttendance = assignedWorker ? getLatestWorkerAttendance(assignedWorker.id) : null;
                     const isWorkerPresent = workerLatestAttendance?.attendanceType === 'IN';
-                    const workerName = matchingTask?.worker ? `${matchingTask.worker.firstName} ${matchingTask.worker.lastName}` : undefined;
 
                     return (
                       <MachineDemoCard
@@ -404,9 +494,7 @@ export default function IotDemoPage() {
                         machine={m}
                         isRunning={isRunning}
                         isWorkerPresent={isWorkerPresent}
-                        assignedWorkerName={workerName}
-                        onToggle={() => handleToggleMachine(m.id, m.status)}
-                        isLoading={isTogglingMachine}
+                        assignedWorker={assignedWorker}
                       />
                     );
                   })}
@@ -444,7 +532,8 @@ export default function IotDemoPage() {
                         key={b.id}
                         bundle={b}
                         isLocked={isLocked}
-                        onAdvance={() => handleAdvanceBundle(b.id)}
+                        presentWorkers={presentWorkersList}
+                        onAdvance={(workerId) => handleAdvanceBundle(b.id, workerId)}
                         isLoading={isAdvancingBundle}
                       />
                     );
@@ -460,6 +549,30 @@ export default function IotDemoPage() {
           <DemoActivityLog />
         </div>
       </div>
+
+      {/* ── Worker Attendance NFC Modal ── */}
+      <WorkerAttendanceModal
+        worker={activeModalWorker}
+        isOpen={!!activeModalWorker}
+        onClose={() => setActiveModalWorker(null)}
+        latestAttendance={activeModalWorker ? getLatestWorkerAttendance(activeModalWorker.id) : null}
+        operationName={activeTasks.find((t: any) => t.workerId === activeModalWorker?.id)?.operation?.operationName}
+        machineCode={activeTasks.find((t: any) => t.workerId === activeModalWorker?.id)?.machine?.machineCode}
+        activeBundles={bundles.filter((b: any) => b.currentWorkerId === activeModalWorker?.id && b.status === 'IN_PROGRESS')}
+        availableBundles={bundles.filter((b: any) => b.status !== 'COMPLETED' && b.status !== 'QC_COMPLETED' && b.currentWorkerId !== activeModalWorker?.id)}
+        avgMinutesPerBundle={activeModalWorker ? (workerTimingStats[activeModalWorker.id]?.avgMinutesPerBundle || 14.5) : 14.5}
+        onToggleAttendance={(workerId, selectedBundleId) => {
+          handleToggleWorker(workerId);
+          if (selectedBundleId) {
+            handleAdvanceBundle(selectedBundleId, workerId);
+          }
+          setActiveModalWorker(null);
+        }}
+        onClaimBundle={(bundleId, workerId) => {
+          handleAdvanceBundle(bundleId, workerId);
+        }}
+        isLoading={togglingWorkerId === activeModalWorker?.id}
+      />
 
       {/* ── Reset Confirmation Modal ── */}
       {showResetConfirm && (

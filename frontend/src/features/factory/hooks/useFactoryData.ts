@@ -39,12 +39,24 @@ export function useFactoryData(): {
         const rawFloors = floorsRes.data.data || [];
         const rawAttendances = attendanceRes.data?.data || [];
 
-        // Build latest attendance map per workerId
-        const latestAttendanceMap = new Map<number, any>();
+        // Build latest attendance maps per workerId AND per workerId+machineId
+        const latestAttendanceByWorkerMachine = new Map<string, any>();
+        const latestAttendanceByWorker = new Map<number, any>();
+
         rawAttendances.forEach((att: any) => {
-          const existing = latestAttendanceMap.get(att.workerId);
-          if (!existing || new Date(att.tapTime) > new Date(existing.tapTime)) {
-            latestAttendanceMap.set(att.workerId, att);
+          if (att.workerId && att.machineId) {
+            const wmKey = `${att.workerId}_${att.machineId}`;
+            const existingWM = latestAttendanceByWorkerMachine.get(wmKey);
+            if (!existingWM || new Date(att.tapTime) > new Date(existingWM.tapTime)) {
+              latestAttendanceByWorkerMachine.set(wmKey, att);
+            }
+          }
+
+          if (att.workerId) {
+            const existingW = latestAttendanceByWorker.get(att.workerId);
+            if (!existingW || new Date(att.tapTime) > new Date(existingW.tapTime)) {
+              latestAttendanceByWorker.set(att.workerId, att);
+            }
           }
         });
 
@@ -64,7 +76,13 @@ export function useFactoryData(): {
           const assignedWorkerData = activeAssignment?.worker || activeTask?.worker;
 
           if (assignedWorkerData) {
-            const latestAtt = latestAttendanceMap.get(assignedWorkerData.id);
+            // Priority 1: Exact worker + machine attendance record
+            const exactAtt = latestAttendanceByWorkerMachine.get(`${assignedWorkerData.id}_${m.id}`);
+            const generalAtt = latestAttendanceByWorker.get(assignedWorkerData.id);
+
+            // Use exact worker+machine attendance, or general worker attendance ONLY if its machineId matches this machine
+            const latestAtt = exactAtt || (generalAtt && Number(generalAtt.machineId) === Number(m.id) ? generalAtt : null);
+
             if (latestAtt?.attendanceType === 'IN') {
               attendanceState = 'present';
               checkInTimeStr = latestAtt.tapTime;
@@ -105,18 +123,19 @@ export function useFactoryData(): {
           }
 
           // Machine seat status mapping:
-          // 'running' (Green) = Assigned Worker is Checked IN
-          // 'checked_out' (Red) = Assigned Worker Checked OUT
-          // 'idle' with worker (Blue) = Assigned Worker NOT Checked In Yet
-          // 'idle' without worker (Gray) = Unassigned / Empty Seat
-          let status: MachineStatus = 'idle';
+          // 'running'     (Green)  = Assigned Worker is Checked IN (present)
+          // 'offline'     (Amber)  = Assigned Worker Checked OUT mid-session / paused
+          // 'idle'        (Blue)   = Assigned Worker not yet checked in
+          // 'no_worker'   (Gray)   = Unassigned / Empty Seat
+          // 'maintenance' (Red)    = Machine fault
+          let status: MachineStatus = 'no_worker';
           if (worker) {
             if (attendanceState === 'present') {
               status = 'running';
             } else if (attendanceState === 'checked_out') {
-              status = 'offline'; // Red color indicator
+              status = 'offline'; // Amber — paused / checked out
             } else {
-              status = 'idle'; // Blue color indicator (Assigned, Not Started)
+              status = 'idle'; // Blue — assigned but hasn't tapped in yet
             }
           }
 
@@ -142,7 +161,11 @@ export function useFactoryData(): {
             position: { row: m.rowIndex % 2 === 0 ? 'top' : 'bottom', index: m.positionIndex != null ? m.positionIndex : index },
             roomId: m.roomId ? String(m.roomId) : undefined,
             rowIndex: m.rowIndex != null ? Number(m.rowIndex) : undefined,
-            positionIndex: m.positionIndex != null ? Number(m.positionIndex) : undefined
+            positionIndex: m.positionIndex != null ? Number(m.positionIndex) : undefined,
+            // Enriched context for Live Factory tooltip
+            attendanceState,
+            checkInTime: attendanceState === 'present' ? checkInTimeStr : undefined,
+            checkOutTime: attendanceState === 'checked_out' ? checkOutTimeStr : undefined,
           };
           
           return factoryMachine;

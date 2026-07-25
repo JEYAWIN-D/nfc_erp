@@ -1,6 +1,7 @@
+import { useNavigate } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import type { DropResult } from "@hello-pangea/dnd";
-import { Activity, Clock, GripVertical } from "lucide-react";
+import { Activity, Clock, GripVertical, Play } from "lucide-react";
 import { useLivePlanningTasks } from "./hooks/useLivePlanningTasks";
 import { usePlanningMutations } from "./hooks/usePlanningMutations";
 import type { ProductionTask, TaskStatus } from "./types/planning.types";
@@ -21,6 +22,7 @@ const KANBAN_COLUMNS: { id: TaskStatus; title: string; color: string }[] = [
 ];
 
 export default function PlanningBoardPage() {
+  const navigate = useNavigate();
   const { data: serverTasks, isLoading: loading } = useLivePlanningTasks();
   const { updateTask } = usePlanningMutations();
   
@@ -148,6 +150,18 @@ export default function PlanningBoardPage() {
                                           </span>
                                         )}
                                       </div>
+                                    )}
+
+                                    {(task.status === 'ASSIGNED' || task.status === 'PLANNED' || task.status === 'RUNNING') && task.productionOrderId && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          navigate(`/iot-demo?orderId=${task.productionOrderId}`);
+                                        }}
+                                        className="w-full mt-2.5 py-1.5 px-2 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-400 border border-emerald-500/30 rounded-md text-xs font-semibold flex items-center justify-center gap-1.5 transition-all shadow-sm"
+                                      >
+                                        <Play className="w-3.5 h-3.5 fill-current" /> Start Production
+                                      </button>
                                     )}
                                   </div>
                                 )}

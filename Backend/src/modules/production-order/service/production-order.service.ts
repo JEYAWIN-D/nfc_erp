@@ -113,8 +113,8 @@ export class ProductionOrderService {
       });
     }
 
-    // Update order status to CLOSED for history preservation
-    const cancelledOrder = await this.repository.changeStatus(id, OrderStatus.CLOSED);
+    // Hard delete order and associated records from database
+    const deletedOrder = await this.repository.delete(id);
 
     // Broadcast WebSocket updates for instant UI synchronization
     websocketService.publish(WEBSOCKET_EVENTS.DASHBOARD_REFRESH, {});
@@ -124,8 +124,8 @@ export class ProductionOrderService {
 
     return {
       success: true,
-      message: `Production Order ${order.orderNumber} deleted and assigned resources released.`,
-      order: cancelledOrder,
+      message: `Production Order ${order.orderNumber} permanently deleted.`,
+      order: deletedOrder,
     };
   }
 }

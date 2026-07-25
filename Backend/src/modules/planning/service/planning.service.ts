@@ -457,11 +457,11 @@ export class PlanningService {
 
       // 2.6 (Removed: displayOrder update on Operation is no longer needed since sequenceOrder is per-task)
 
-      // 3. Mark Production Order as IN_PROGRESS
+      // 3. Mark Production Order as READY_FOR_PRODUCTION
       if (order.status !== "COMPLETED" && order.status !== "CLOSED") {
         await tx.productionOrder.update({
           where: { id: order.id },
-          data: { status: "IN_PROGRESS" }
+          data: { status: "READY_FOR_PRODUCTION" as any }
         });
       }
 

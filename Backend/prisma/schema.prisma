@@ -461,8 +461,12 @@ enum BundleStatus {
 }
 
 enum OrderStatus {
+  DRAFT
   PLANNED
+  READY_FOR_PRODUCTION
+  RUNNING
   IN_PROGRESS
+  QC
   COMPLETED
   CLOSED
 }

@@ -42,32 +42,14 @@ export function DemoActivityLog() {
   return (
     <div className="flex flex-col h-full bg-zinc-900/60 border border-white/8 rounded-2xl overflow-hidden">
       {/* Header */}
-      <div className="px-5 py-3 border-b border-white/8 flex items-center justify-between gap-3 bg-zinc-900/80">
+      <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between gap-3 bg-zinc-900/80">
         <div className="flex items-center gap-2">
           <Activity className="w-4 h-4 text-emerald-400" />
-          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Live Simulation Activity Log</h3>
-          <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/20 font-mono">
-            {filteredLogs.length} events
-          </span>
+          <h3 className="text-xs font-bold text-white uppercase tracking-wider">Live Activity Log</h3>
         </div>
-
-        {/* Category Filters */}
-        <div className="flex items-center gap-1.5 overflow-x-auto hide-scrollbar">
-          {['all', 'attendance', 'machine', 'bundle', 'system'].map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setLogFilter(cat)}
-              className={cn(
-                'px-2.5 py-1 rounded-lg text-[10px] font-bold capitalize transition-all border',
-                logFilter === cat
-                  ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300'
-                  : 'bg-zinc-800/80 border-white/5 text-white/40 hover:text-white hover:bg-zinc-800'
-              )}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
+        <span className="text-[10px] bg-emerald-500/15 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/20 font-mono font-bold">
+          {logs.length} events
+        </span>
       </div>
 
       {/* Log Feed */}

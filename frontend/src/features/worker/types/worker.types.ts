@@ -66,11 +66,30 @@ export interface WorkerTimelineEvent {
   metadata?: Record<string, any>;
 }
 
+export interface WorkerHistoryItem {
+  id: string;
+  date: string;
+  operationName: string;
+  productionOrder?: string;
+  projectName?: string;
+  machineCode?: string;
+  startTime?: string;
+  endTime?: string;
+  status?: string;
+}
+
 export interface WorkerData extends WorkerProfile {
   attendanceRecords: WorkerAttendance[];
-  currentAssignment?: WorkerAssignment;
+  currentAssignment?: WorkerAssignment & {
+    checkInTime?: string;
+    checkOutTime?: string;
+    attendanceState?: 'present' | 'checked_out' | 'assigned_not_present';
+  };
   productionHistory: WorkerProduction[];
   timeline: WorkerTimelineEvent[];
+  history?: WorkerHistoryItem[];
+  todayCheckIn?: string;
+  todayCheckOut?: string;
 }
 
 // API Types based on Prisma Schema

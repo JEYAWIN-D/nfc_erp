@@ -57,6 +57,7 @@ export function MachinesFilter() {
       </div>
 
       {/* Filters Row */}
+      {/* Filters Row */}
       <div className="flex items-center gap-2 flex-wrap">
         <Select
           value={store.departmentFilter}
@@ -64,9 +65,12 @@ export function MachinesFilter() {
         >
           <SelectTrigger
             id="filter-department"
-            className="w-[140px] bg-zinc-900/50 border-white/10 h-10 text-sm"
+            className="min-w-[150px] w-auto bg-zinc-900/50 border-white/10 h-10 text-sm px-3"
           >
-            <SelectValue placeholder="Department" />
+            <span className="truncate">
+              <span className="text-white/40 mr-1.5 font-medium">Dept:</span>
+              <span className="text-white font-semibold">{store.departmentFilter === "all" || !store.departmentFilter ? "All" : store.departmentFilter}</span>
+            </span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Departments</SelectItem>
@@ -84,9 +88,12 @@ export function MachinesFilter() {
         >
           <SelectTrigger
             id="filter-building"
-            className="w-[120px] bg-zinc-900/50 border-white/10 h-10 text-sm"
+            className="min-w-[140px] w-auto bg-zinc-900/50 border-white/10 h-10 text-sm px-3"
           >
-            <SelectValue placeholder="Building" />
+            <span className="truncate">
+              <span className="text-white/40 mr-1.5 font-medium">Building:</span>
+              <span className="text-white font-semibold">{store.buildingFilter === "all" || !store.buildingFilter ? "All" : store.buildingFilter}</span>
+            </span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Buildings</SelectItem>
@@ -104,9 +111,12 @@ export function MachinesFilter() {
         >
           <SelectTrigger
             id="filter-floor"
-            className="w-[120px] bg-zinc-900/50 border-white/10 h-10 text-sm"
+            className="min-w-[130px] w-auto bg-zinc-900/50 border-white/10 h-10 text-sm px-3"
           >
-            <SelectValue placeholder="Floor" />
+            <span className="truncate">
+              <span className="text-white/40 mr-1.5 font-medium">Floor:</span>
+              <span className="text-white font-semibold">{store.floorFilter === "all" || !store.floorFilter ? "All" : store.floorFilter}</span>
+            </span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Floors</SelectItem>
@@ -124,9 +134,12 @@ export function MachinesFilter() {
         >
           <SelectTrigger
             id="filter-line"
-            className="w-[120px] bg-zinc-900/50 border-white/10 h-10 text-sm"
+            className="min-w-[130px] w-auto bg-zinc-900/50 border-white/10 h-10 text-sm px-3"
           >
-            <SelectValue placeholder="Line" />
+            <span className="truncate">
+              <span className="text-white/40 mr-1.5 font-medium">Line:</span>
+              <span className="text-white font-semibold">{store.productionLineFilter === "all" || !store.productionLineFilter ? "All" : store.productionLineFilter}</span>
+            </span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Lines</SelectItem>
@@ -144,9 +157,12 @@ export function MachinesFilter() {
         >
           <SelectTrigger
             id="filter-type"
-            className="w-[145px] bg-zinc-900/50 border-white/10 h-10 text-sm"
+            className="min-w-[150px] w-auto bg-zinc-900/50 border-white/10 h-10 text-sm px-3"
           >
-            <SelectValue placeholder="Machine Type" />
+            <span className="truncate">
+              <span className="text-white/40 mr-1.5 font-medium">Type:</span>
+              <span className="text-white font-semibold">{store.typeFilter === "all" || !store.typeFilter ? "All" : store.typeFilter}</span>
+            </span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
@@ -164,9 +180,16 @@ export function MachinesFilter() {
         >
           <SelectTrigger
             id="filter-status"
-            className="w-[130px] bg-zinc-900/50 border-white/10 h-10 text-sm"
+            className="min-w-[140px] w-auto bg-zinc-900/50 border-white/10 h-10 text-sm px-3"
           >
-            <SelectValue placeholder="Status" />
+            <span className="truncate">
+              <span className="text-white/40 mr-1.5 font-medium">Status:</span>
+              <span className="text-white font-semibold">
+                {store.statusFilter === "all" || !store.statusFilter
+                  ? "All"
+                  : store.statusFilter.charAt(0).toUpperCase() + store.statusFilter.slice(1)}
+              </span>
+            </span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
@@ -184,9 +207,16 @@ export function MachinesFilter() {
         >
           <SelectTrigger
             id="filter-health"
-            className="w-[120px] bg-zinc-900/50 border-white/10 h-10 text-sm"
+            className="min-w-[140px] w-auto bg-zinc-900/50 border-white/10 h-10 text-sm px-3"
           >
-            <SelectValue placeholder="Health" />
+            <span className="truncate">
+              <span className="text-white/40 mr-1.5 font-medium">Health:</span>
+              <span className="text-white font-semibold">
+                {store.healthFilter === "all" || !store.healthFilter
+                  ? "All"
+                  : store.healthFilter.charAt(0).toUpperCase() + store.healthFilter.slice(1)}
+              </span>
+            </span>
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Health</SelectItem>
