@@ -41,7 +41,10 @@ export function BundleDetailsDrawer() {
                   {bundle.bundleNumber}
                 </h2>
                 <p className="text-sm text-white/50 mt-1">
-                  PO: {bundle.productionOrder} | Operation: {bundle.operation}
+                  Order: <strong className="text-blue-400 font-mono">{bundle.orderNumber || bundle.productionOrder}</strong>
+                  {bundle.customerName ? ` (${bundle.customerName}${bundle.styleNumber ? ` • ${bundle.styleNumber}` : ''})` : ''}
+                  {' · '}
+                  Operation: <strong className="text-white">{bundle.operation}</strong>
                 </p>
               </div>
               <button

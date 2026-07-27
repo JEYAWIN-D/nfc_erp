@@ -54,17 +54,18 @@ export function OrderPriorityBadge({ priority }: { priority: OrderPriority }) {
 }
 
 export function ProgressBar({ target, completed, defective }: { target: number, completed: number, defective: number }) {
-  const compPct = Math.min((completed / target) * 100, 100);
-  const defPct = Math.min((defective / target) * 100, 100 - compPct);
+  const safeTarget = target || 1;
+  const compPct = Math.min((completed / safeTarget) * 100, 100);
+  const defPct = Math.min((defective / safeTarget) * 100, 100 - compPct);
 
   return (
     <div className="w-full">
-      <div className="flex justify-between text-[10px] font-mono text-white/50 mb-1">
-        <span>{completed} / {target}</span>
-        <span>{Math.round(compPct)}%</span>
+      <div className="flex items-center justify-between text-xs font-mono mb-1 gap-2">
+        <span className="font-bold text-white/90 truncate">{completed} / {target}</span>
+        <span className="font-bold text-emerald-400 shrink-0">{Math.round(compPct)}%</span>
       </div>
-      <div className="h-1.5 w-full bg-zinc-900 rounded-full overflow-hidden flex border border-white/5">
-        <div className="h-full bg-emerald-500 transition-all duration-500" style={{ width: `${compPct}%` }} />
+      <div className="h-2 w-full bg-zinc-900/80 rounded-full overflow-hidden flex border border-white/10 shadow-inner">
+        <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500" style={{ width: `${compPct}%` }} />
         <div className="h-full bg-rose-500 transition-all duration-500" style={{ width: `${defPct}%` }} />
       </div>
     </div>

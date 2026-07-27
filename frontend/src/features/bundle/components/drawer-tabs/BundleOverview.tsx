@@ -12,7 +12,14 @@ export function BundleOverview({ bundle }: { bundle: Bundle }) {
             <Link2 className="w-4 h-4" />
             <span className="text-xs font-semibold uppercase tracking-wider">Production Order</span>
           </div>
-          <p className="text-lg font-bold text-blue-400 hover:underline cursor-pointer">{bundle.productionOrder}</p>
+          <p className="text-base font-bold font-mono text-blue-400 hover:underline cursor-pointer">
+            {bundle.orderNumber || bundle.productionOrder}
+          </p>
+          {(bundle.customerName || bundle.styleNumber) && (
+            <p className="text-xs text-white/60 font-medium mt-0.5 truncate">
+              {bundle.customerName}{bundle.customerName && bundle.styleNumber ? ' • ' : ''}{bundle.styleNumber}
+            </p>
+          )}
         </div>
         <div className="bg-zinc-900/50 border border-white/5 p-4 rounded-xl">
           <div className="flex items-center gap-2 text-white/50 mb-2">

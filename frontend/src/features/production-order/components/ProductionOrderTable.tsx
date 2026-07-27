@@ -8,7 +8,7 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useNavigate } from "react-router-dom";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, MoreHorizontal, Eye, FileEdit, Trash2, RefreshCw, Play } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, MoreHorizontal, Eye, FileEdit, Trash2, RefreshCw, Play, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -97,64 +97,89 @@ export function ProductionOrderTable() {
     columnHelper.display({
       id: "actions",
       header: "",
-      cell: (info) => (
-        <div className="flex justify-end">
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              className="p-2 hover:bg-white/10 rounded-md transition-colors text-white/40 hover:text-white outline-none flex items-center justify-center"
+      cell: (info) => {
+        const order = info.row.original;
+        return (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                localStorage.setItem('planning_selected_order', JSON.stringify(String(order.id)));
+                navigate(`/planning/center?orderId=${order.id}`);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/40 rounded-lg transition-colors cursor-pointer"
+              title="Open Production Planning for this order"
             >
-              <MoreHorizontal className="w-4 h-4" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56 bg-zinc-900 border-white/10 text-white">
-              <DropdownMenuItem 
-                onClick={() => store.setSelectedOrder(info.row.original.id)}
-                className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+              <Wand2 className="w-3.5 h-3.5" />
+              <span>Plan Order</span>
+            </button>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                className="p-2 hover:bg-white/10 rounded-md transition-colors text-white/40 hover:text-white outline-none flex items-center justify-center"
               >
-                <Eye className="w-4 h-4 mr-2" /> View Details
-              </DropdownMenuItem>
-              {(info.row.original.status === 'ready_for_production' || info.row.original.status === 'planned' || info.row.original.status === 'running') && (
+                <MoreHorizontal className="w-4 h-4" />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56 bg-zinc-900 border-white/10 text-white">
                 <DropdownMenuItem 
-                  onClick={() => navigate(`/iot-demo?orderId=${info.row.original.id}`)}
-                  className="hover:bg-emerald-500/20 focus:bg-emerald-500/20 text-emerald-400 font-semibold cursor-pointer"
+                  onClick={() => store.setSelectedOrder(order.id)}
+                  className="hover:bg-white/10 focus:bg-white/10 cursor-pointer"
                 >
-                  <Play className="w-4 h-4 mr-2" /> Start Production
+                  <Eye className="w-4 h-4 mr-2" /> View Details
                 </DropdownMenuItem>
-              )}
-              <DropdownMenuItem 
-                className="hover:bg-white/10 focus:bg-white/10 cursor-pointer" 
-                onClick={() => store.setEditModalOpen(true, info.row.original.id)}
-              >
-                <FileEdit className="w-4 h-4 mr-2" /> Edit Order
-              </DropdownMenuItem>
-              <DropdownMenuSeparator className="bg-white/10" />
-              <DropdownMenuItem 
-                className="hover:bg-amber-500/20 focus:bg-amber-500/20 text-amber-400 cursor-pointer" 
-                onClick={() => { 
-                  setTimeout(() => {
-                    if(confirm(`Close Order ${info.row.original.orderNumber}?`)) {
-                      updateStatusMutation.mutate({ id: info.row.original.id, status: "CLOSED" });
-                    }
-                  }, 100);
-                }}
-              >
-                <RefreshCw className="w-4 h-4 mr-2" /> Close Order
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="hover:bg-rose-500/20 focus:bg-rose-500/20 text-rose-400 cursor-pointer" 
-                onClick={() => { 
-                  setTimeout(() => {
-                    if(confirm(`Are you sure you want to DELETE Order ${info.row.original.orderNumber}?\n\nThis will release all assigned workers and machines so they become available again, and archive order history.`)) {
-                      deleteOrderMutation.mutate(info.row.original.id);
-                    }
-                  }, 100);
-                }}
-              >
-                <Trash2 className="w-4 h-4 mr-2" /> Delete Order (Release Resources)
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      ),
+                <DropdownMenuItem
+                  onClick={() => {
+                    localStorage.setItem('planning_selected_order', JSON.stringify(String(order.id)));
+                    navigate(`/planning/center?orderId=${order.id}`);
+                  }}
+                  className="hover:bg-blue-500/20 focus:bg-blue-500/20 text-blue-400 font-semibold cursor-pointer"
+                >
+                  <Wand2 className="w-4 h-4 mr-2" /> Production Planning
+                </DropdownMenuItem>
+                {(order.status === 'ready_for_production' || order.status === 'planned' || order.status === 'running') && (
+                  <DropdownMenuItem 
+                    onClick={() => navigate(`/iot-demo?orderId=${order.id}`)}
+                    className="hover:bg-emerald-500/20 focus:bg-emerald-500/20 text-emerald-400 font-semibold cursor-pointer"
+                  >
+                    <Play className="w-4 h-4 mr-2" /> Start Production
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem 
+                  className="hover:bg-white/10 focus:bg-white/10 cursor-pointer" 
+                  onClick={() => store.setEditModalOpen(true, order.id)}
+                >
+                  <FileEdit className="w-4 h-4 mr-2" /> Edit Order
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem 
+                  className="hover:bg-amber-500/20 focus:bg-amber-500/20 text-amber-400 cursor-pointer" 
+                  onClick={() => { 
+                    setTimeout(() => {
+                      if(confirm(`Close Order ${order.orderNumber}?`)) {
+                        updateStatusMutation.mutate({ id: order.id, status: "CLOSED" });
+                      }
+                    }, 100);
+                  }}
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" /> Close Order
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className="hover:bg-rose-500/20 focus:bg-rose-500/20 text-rose-400 cursor-pointer" 
+                  onClick={() => { 
+                    setTimeout(() => {
+                      if(confirm(`Are you sure you want to DELETE Order ${order.orderNumber}?\n\nThis will release all assigned workers and machines so they become available again, and archive order history.`)) {
+                        deleteOrderMutation.mutate(order.id);
+                      }
+                    }, 100);
+                  }}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" /> Delete Order (Release Resources)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
     }),
   ], [store, updateStatusMutation, deleteOrderMutation]);
 

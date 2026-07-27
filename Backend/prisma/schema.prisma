@@ -70,6 +70,7 @@ model Bundle {
   productionTasks    ProductionTask[]
   qcCheckLogs        QCCheckLog[]
 
+  @@index([productionOrderId, status])
   @@map("bundles")
 }
 
@@ -522,6 +523,8 @@ model ActivityLog {
   details           Json?
   productionOrderId Int?
 
+  @@index([timestamp])
+  @@index([productionOrderId])
   @@map("activity_logs")
 }
 

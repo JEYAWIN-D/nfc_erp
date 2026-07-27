@@ -50,30 +50,53 @@ export function BundleTable() {
       cell: (info) => <span className="font-mono text-white font-bold">{info.getValue()}</span>,
     }),
     columnHelper.accessor("productionOrder", {
-      header: "Order",
-      cell: (info) => (
-        <div className="flex items-center gap-1.5">
-          <Link2 className="w-3 h-3 text-white/40" />
-          <span className="text-blue-400 font-medium hover:underline cursor-pointer">{info.getValue()}</span>
-        </div>
-      )
+      header: "Production Order",
+      cell: (info) => {
+        const b = info.row.original;
+        const customer = b.customerName;
+        const style = b.styleNumber;
+
+        return (
+          <div className="flex flex-col min-w-[140px]">
+            <div className="flex items-center gap-1.5">
+              <Link2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+              <span className="text-blue-400 font-mono font-bold text-xs hover:underline cursor-pointer">
+                {b.orderNumber || info.getValue()}
+              </span>
+            </div>
+            {(customer || style) && (
+              <span className="text-[11px] text-white/60 font-medium truncate mt-0.5">
+                {customer}{customer && style ? ' • ' : ''}{style}
+              </span>
+            )}
+          </div>
+        );
+      }
     }),
     columnHelper.accessor("operation", {
       header: "Operation",
-      cell: (info) => <span className="text-white/80">{info.getValue()}</span>,
+      cell: (info) => <span className="text-white/80 font-medium text-xs">{info.getValue()}</span>,
     }),
     columnHelper.display({
       id: "location",
-      header: "Location",
+      header: "Worker & Machine",
       cell: (info) => {
         const o = info.row.original;
-        if (o.status === "completed") return <span className="text-white/30 text-xs">Completed</span>;
         
         return (
-          <div className="flex flex-col gap-0.5 text-xs">
-            {o.department ? <span className="text-purple-400 font-semibold">{o.department}</span> : null}
-            {o.currentMachine ? <span className="text-emerald-400 font-mono">{o.currentMachine}</span> : <span className="text-white/20">-</span>}
-            {o.currentWorker ? <span className="text-white/70">{o.currentWorker}</span> : <span className="text-white/20">-</span>}
+          <div className="flex flex-col gap-1 text-xs">
+            {o.currentWorker ? (
+              <span className="text-white font-semibold truncate max-w-[130px]" title={o.currentWorker}>
+                {o.currentWorker}
+              </span>
+            ) : (
+              <span className="text-white/30 text-xs italic">Unassigned Worker</span>
+            )}
+            {o.currentMachine ? (
+              <span className="text-emerald-400 font-mono text-[11px] font-bold">
+                {o.currentMachine}
+              </span>
+            ) : null}
           </div>
         );
       }

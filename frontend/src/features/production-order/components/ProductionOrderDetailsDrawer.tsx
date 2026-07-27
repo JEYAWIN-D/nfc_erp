@@ -1,4 +1,5 @@
-import { X, FileText, Activity, Layers } from "lucide-react";
+import { X, FileText, Activity, Layers, Wand2 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useProductionOrderStore } from "../store/production-order.store";
 import { useProductionOrders } from "../hooks/useProductionOrderData";
@@ -15,6 +16,7 @@ const TABS = [
 ];
 
 export function ProductionOrderDetailsDrawer() {
+  const navigate = useNavigate();
   const store = useProductionOrderStore();
   const { orders, isLoading } = useProductionOrders();
   
@@ -55,12 +57,25 @@ export function ProductionOrderDetailsDrawer() {
                   {order.customerName} - {order.styleNumber}
                 </p>
               </div>
-              <button
-                onClick={() => store.setDrawerOpen(false)}
-                className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/50 hover:text-white"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    localStorage.setItem('planning_selected_order', JSON.stringify(String(order.id)));
+                    navigate(`/planning/center?orderId=${order.id}`);
+                    store.setDrawerOpen(false);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 hover:border-blue-500/40 rounded-lg transition-colors cursor-pointer"
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  <span>Plan Order</span>
+                </button>
+                <button
+                  onClick={() => store.setDrawerOpen(false)}
+                  className="p-2 hover:bg-white/10 rounded-full transition-colors text-white/50 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Tabs */}

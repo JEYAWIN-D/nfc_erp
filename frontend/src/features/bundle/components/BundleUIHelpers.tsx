@@ -2,13 +2,15 @@ import { cn } from "@/lib/utils";
 import type { BundleStatus, BundlePriority } from "../types/bundle.types";
 
 export function BundleStatusBadge({ status }: { status: BundleStatus }) {
-  const config = {
+  const config: Record<BundleStatus, { bg: string; text: string; border: string; label: string }> = {
     in_progress: { bg: "bg-blue-500/10", text: "text-blue-400", border: "border-blue-500/20", label: "In Progress" },
     completed: { bg: "bg-emerald-500/10", text: "text-emerald-400", border: "border-emerald-500/20", label: "Completed" },
     rejected: { bg: "bg-rose-500/10", text: "text-rose-400", border: "border-rose-500/20", label: "Rejected" },
     delayed: { bg: "bg-amber-500/10", text: "text-amber-400", border: "border-amber-500/20", label: "Delayed" },
+    on_hold: { bg: "bg-purple-500/10", text: "text-purple-400", border: "border-purple-500/20", label: "On Hold" },
+    rework: { bg: "bg-orange-500/10", text: "text-orange-400", border: "border-orange-500/20", label: "Rework" },
   };
-  const c = config[status];
+  const c = config[status] || config.in_progress;
 
   return (
     <span

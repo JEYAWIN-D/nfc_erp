@@ -439,9 +439,10 @@ export class IotDemoService {
    * Allocated (CREATED) → Started (IN_PROGRESS) → Completed (COMPLETED) → Closed (QC_COMPLETED)
    * Enforces:
    * 1. Sequential Gating: Only ONE bundle can be IN_PROGRESS at a time for an order.
-   * 2. Worker Attendance Check: Worker must be checked IN.
+   * 2. Worker Attendance Check & Fallback: Ensures a checked-in worker is assigned; fails loudly if none available.
    * 3. REWORK & HOLD explicit handling (HOLD blocked, REWORK returns to IN_PROGRESS without resetting qty).
-   * 4. Prisma $transaction wrapping all writes.
+   * 4. Race Condition Protection inside transaction.
+   * 5. Prisma $transaction wrapping all writes.
    */
   async advanceBundle(bundleId: number, workerId?: number) {
     const bundle = await prisma.bundle.findUnique({
@@ -454,9 +455,13 @@ export class IotDemoService {
 
     if (!bundle) throw new Error('Bundle not found');
 
-    // 3. HOLD check
+    // 3. HOLD & Closed check
     if (bundle.status === 'HOLD') {
       throw new Error(`Bundle ${bundle.bundleNumber} is currently on HOLD. Release hold status before advancing.`);
+    }
+
+    if (bundle.status === 'QC_COMPLETED' || (bundle.status as string) === 'CLOSED') {
+      throw new Error(`Bundle ${bundle.bundleNumber} is completed and closed. It cannot be reused or reset.`);
     }
 
     const nextStatusMap: Record<string, { status: any; completedQty: number; label: string }> = {
@@ -464,28 +469,10 @@ export class IotDemoService {
       WAITING: { status: 'IN_PROGRESS', completedQty: Math.floor(bundle.quantity / 2), label: 'Started (In Progress)' },
       IN_PROGRESS: { status: 'COMPLETED', completedQty: bundle.quantity, label: 'Completed' },
       COMPLETED: { status: 'QC_COMPLETED', completedQty: bundle.quantity, label: 'Closed (Transferred to QC)' },
-      QC_COMPLETED: { status: 'CREATED', completedQty: 0, label: 'Reset to Allocated' },
       REWORK: { status: 'IN_PROGRESS', completedQty: bundle.completedQuantity, label: 'Returned to In Progress (Rework)' },
     };
 
     const nextStep = nextStatusMap[bundle.status] || nextStatusMap.CREATED;
-
-    // 1. Sequential Gating Check: If moving to IN_PROGRESS, verify no other bundle in order is IN_PROGRESS
-    if (nextStep.status === 'IN_PROGRESS') {
-      const activeBundleInOrder = await prisma.bundle.findFirst({
-        where: {
-          productionOrderId: bundle.productionOrderId,
-          status: 'IN_PROGRESS',
-          id: { not: bundleId },
-        },
-      });
-
-      if (activeBundleInOrder) {
-        throw new Error(
-          `Sequential Gating Violation: Bundle ${activeBundleInOrder.bundleNumber} is already IN_PROGRESS for this order. Complete it before starting bundle ${bundle.bundleNumber}.`
-        );
-      }
-    }
 
     // Determine target worker, machine, operation
     let targetWorkerId = workerId || bundle.currentWorkerId || undefined;
@@ -515,22 +502,72 @@ export class IotDemoService {
       }
     }
 
-    // 4. Check that worker is actually PRESENT (checked IN)
-    if (targetWorkerId && nextStep.status === 'IN_PROGRESS') {
-      const latestAttendance = await prisma.attendance.findFirst({
-        where: { workerId: targetWorkerId },
-        orderBy: { tapTime: 'desc' },
-      });
+    // 2. Attendance Check & Auto Check-in for explicit worker allocation
+    if (nextStep.status === 'IN_PROGRESS') {
+      let isPresent = false;
+      if (targetWorkerId) {
+        const latestAttendance = await prisma.attendance.findFirst({
+          where: { workerId: targetWorkerId },
+          orderBy: [{ tapTime: 'desc' }, { id: 'desc' }],
+        });
+        isPresent = latestAttendance?.attendanceType === 'IN';
+      }
 
-      const isPresent = latestAttendance?.attendanceType === 'IN';
       if (!isPresent) {
         if (workerId) {
-          throw new Error(
-            `Worker assignment rejected: Worker ID ${targetWorkerId} is currently checked OUT (ABSENT) and cannot be assigned to an in-progress bundle.`
-          );
+          // Explicit workerId parameter was passed from Worker Attendance Terminal or Bundle Allocation action.
+          // Auto-record an IN attendance entry for this worker so allocation succeeds smoothly.
+          const firstAssignment = await prisma.assignment.findFirst({
+            where: { workerId: targetWorkerId, status: 'ACTIVE' },
+            include: { machine: true, shift: true },
+          });
+          const firstTerminal = (await prisma.terminal.findFirst({ where: { status: 'ACTIVE' } })) || { id: 1 };
+          const firstShift = firstAssignment?.shift || (await prisma.shift.findFirst({ where: { status: 'ACTIVE' } })) || { id: 1 };
+          const targetMachine = firstAssignment?.machine || (await prisma.machine.findFirst({ where: { status: 'ACTIVE' } })) || { id: 1 };
+
+          await prisma.attendance.create({
+            data: {
+              workerId: targetWorkerId!,
+              assignmentId: firstAssignment?.id || 1,
+              terminalId: firstTerminal.id,
+              machineId: targetMachine.id,
+              shiftId: firstShift.id,
+              attendanceType: 'IN',
+              tapTime: new Date(),
+            },
+          });
+
+          if (targetMachine.id) {
+            await prisma.machine.update({
+              where: { id: targetMachine.id },
+              data: { status: 'ACTIVE' },
+            });
+          }
+
+          isPresent = true;
         } else {
-          // Auto-assigned worker from task is not present — unassign target worker
-          targetWorkerId = undefined;
+          // Auto-assigned worker from task is not present — try fallback present worker
+          const fallbackTask = await prisma.productionTask.findFirst({
+            where: {
+              productionOrderId: bundle.productionOrderId,
+              workerId: { not: null },
+              worker: {
+                attendances: { some: { attendanceType: 'IN' } },
+              },
+            },
+            orderBy: { sequenceOrder: 'asc' },
+            include: { worker: true, machine: true, operation: true },
+          });
+
+          if (fallbackTask?.workerId) {
+            targetWorkerId = fallbackTask.workerId;
+            targetMachineId = fallbackTask.machineId || targetMachineId;
+            targetOperationId = fallbackTask.operationId || targetOperationId;
+          } else {
+            throw new Error(
+              `Cannot start bundle ${bundle.bundleNumber}: no checked-in worker is available for this order.`
+            );
+          }
         }
       }
     }
@@ -566,6 +603,17 @@ export class IotDemoService {
           currentMachine: true,
           currentOperation: true,
         },
+      });
+
+      // Sync aggregate completedQuantity to ProductionOrder
+      const orderCompletedAggregate = await tx.bundle.aggregate({
+        where: { productionOrderId: bundle.productionOrderId },
+        _sum: { completedQuantity: true },
+      });
+
+      await tx.productionOrder.update({
+        where: { id: bundle.productionOrderId },
+        data: { completedQuantity: orderCompletedAggregate._sum.completedQuantity || 0 },
       });
 
       const activeWorkerName = updatedBundle.currentWorker
@@ -645,8 +693,8 @@ export class IotDemoService {
 
   /**
    * Reset Demo:
-   * Scoped to productionOrderId if specified, so factory machines from other orders are not affected.
-   * Resets workers to Absent, machines to Idle, bundles to CREATED, and clears order activity logs from DB.
+   * Scoped to productionOrderId if specified, so factory machines and workers from other orders are not affected.
+   * Resets workers to Absent using their real assignments/shifts, machines to Idle, bundles to CREATED, and clears order activity logs from DB.
    */
   async resetDemo(productionOrderId?: number) {
     if (productionOrderId) {
@@ -704,27 +752,29 @@ export class IotDemoService {
       await prisma.activityLog.deleteMany({});
     }
 
-    const activeWorkers = await prisma.worker.findMany({
-      where: { status: 'ACTIVE' },
-      take: 100,
-    });
-
-    const now = new Date();
-    for (const worker of activeWorkers) {
-      try {
-        await prisma.attendance.create({
-          data: {
-            workerId: worker.id,
-            assignmentId: 1,
-            terminalId: 1,
-            machineId: 1,
-            shiftId: 1,
-            attendanceType: 'OUT',
-            tapTime: now,
+    // Scoped active workers lookup
+    const activeWorkers = productionOrderId
+      ? await prisma.worker.findMany({
+          where: {
+            status: 'ACTIVE',
+            OR: [
+              { productionTasks: { some: { productionOrderId } } },
+              { assignments: { some: { status: 'ACTIVE', operation: { productionTasks: { some: { productionOrderId } } } } } },
+            ],
           },
+          take: 100,
+        })
+      : await prisma.worker.findMany({ where: { status: 'ACTIVE' }, take: 100 });
+
+    // Clear simulation attendance records for workers on reset so workers return to default Assigned (Blue) state
+    const workerIds = activeWorkers.map((w) => w.id);
+    if (workerIds.length > 0) {
+      try {
+        await prisma.attendance.deleteMany({
+          where: { workerId: { in: workerIds } },
         });
       } catch (e) {
-        // ignore fallback errors
+        // ignore delete fallback errors
       }
     }
 

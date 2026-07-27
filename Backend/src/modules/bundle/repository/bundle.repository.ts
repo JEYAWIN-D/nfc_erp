@@ -51,14 +51,38 @@ export class BundleRepository {
   async update(id: number, data: Prisma.BundleUncheckedUpdateInput) {
     return prisma.bundle.update({
       where: { id },
-      data
+      data,
+      include: {
+        productionOrder: true,
+        currentOperation: true,
+        currentMachine: { include: { department: true, terminal: true } },
+        currentWorker: { include: { department: true } },
+        stageLogs: {
+          orderBy: { inTime: 'asc' }
+        },
+        tagAssignments: {
+          where: { status: 'ASSIGNED' }
+        }
+      }
     });
   }
 
   async changeStatus(id: number, status: BundleStatus) {
     return prisma.bundle.update({
       where: { id },
-      data: { status }
+      data: { status },
+      include: {
+        productionOrder: true,
+        currentOperation: true,
+        currentMachine: { include: { department: true, terminal: true } },
+        currentWorker: { include: { department: true } },
+        stageLogs: {
+          orderBy: { inTime: 'asc' }
+        },
+        tagAssignments: {
+          where: { status: 'ASSIGNED' }
+        }
+      }
     });
   }
 }

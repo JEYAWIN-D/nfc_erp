@@ -2,6 +2,7 @@ import { BundleRepository } from "../repository/bundle.repository";
 import prisma from "../../../config/prisma";
 import { BundleStatus } from "@prisma/client";
 import { websocketService, WEBSOCKET_EVENTS } from "../../websocket";
+import { BundleRules } from "../shared/bundle-rules";
 
 export class BundleService {
   private repository: BundleRepository;
@@ -53,7 +54,9 @@ export class BundleService {
   }
 
   async update(id: number, data: any) {
-    await this.findById(id);
+    const bundle = await this.findById(id);
+
+    BundleRules.validateUnassignment(bundle.status, data);
 
     if (data.currentWorkerId) {
       const worker = await prisma.worker.findUnique({ where: { id: data.currentWorkerId } });
@@ -74,7 +77,17 @@ export class BundleService {
   }
 
   async changeStatus(id: number, status: BundleStatus) {
-    await this.findById(id);
+    const bundle = await this.findById(id);
+
+    if (status === BundleStatus.IN_PROGRESS) {
+      await BundleRules.validateInProgressTransition(
+        id,
+        bundle.productionOrderId,
+        bundle.currentWorkerId,
+        bundle.currentMachineId
+      );
+    }
+
     const updated = await this.repository.changeStatus(id, status);
     
     let eventName = WEBSOCKET_EVENTS.BUNDLE_UPDATED;

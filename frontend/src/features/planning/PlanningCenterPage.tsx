@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Activity, Play, ArrowRight, Package, Layers, CheckCircle, Wand2, Users, Cpu, ShieldAlert, CheckSquare, Clock, ChevronUp, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
 import { useProductionOrders } from "../production-order/hooks/useProductionOrderData";
@@ -45,6 +46,7 @@ function LiveOperationTracker({ operationId }: { operationId: number }) {
 }
 
 export default function PlanningCenterPage() {
+  const [searchParams] = useSearchParams();
   const { orders, isLoading: loadingOrders } = useProductionOrders();
   const { data: resources, isLoading: loadingResources } = useLivePlanningResources();
   const { data: operations = [], isLoading: loadingOps } = useOperations({ status: 'ACTIVE' });
@@ -53,6 +55,8 @@ export default function PlanningCenterPage() {
   const { data: historyData = [], isLoading: loadingHistory } = usePlanningHistory();
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(() => {
+    const urlOrderId = searchParams.get('orderId');
+    if (urlOrderId) return urlOrderId;
     try {
       const saved = localStorage.getItem('planning_selected_order');
       return saved ? JSON.parse(saved) : null;
@@ -60,6 +64,14 @@ export default function PlanningCenterPage() {
       return null;
     }
   });
+
+  useEffect(() => {
+    const urlOrderId = searchParams.get('orderId');
+    if (urlOrderId && urlOrderId !== selectedOrderId) {
+      setSelectedOrderId(urlOrderId);
+      localStorage.setItem('planning_selected_order', JSON.stringify(urlOrderId));
+    }
+  }, [searchParams]);
 
   const [drafts, setDrafts] = useState<Record<string, {
     selectedOperations: number[];

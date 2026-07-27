@@ -77,6 +77,10 @@ export function BundleProductionView() {
         const usedBundles = poBundles.filter(b => b.status === "in_progress" || b.status === "completed").length;
         const progressPercent = totalBundles > 0 ? Math.round((usedBundles / totalBundles) * 100) : 0;
 
+        const firstBundle = poBundles[0];
+        const customer = firstBundle?.customerName;
+        const style = firstBundle?.styleNumber;
+
         return (
           <div key={poName} className="bg-zinc-900 border border-white/10 rounded-xl overflow-hidden shadow-lg transition-all duration-300">
             {/* Card Header (Clickable) */}
@@ -89,12 +93,15 @@ export function BundleProductionView() {
             >
               <div className="flex items-center gap-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center shrink-0">
                     <Package className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-bold text-white tracking-tight">{poName}</h3>
-                    <p className="text-sm text-white/40">Production Order</p>
+                    <h3 className="text-base font-extrabold font-mono text-white tracking-tight">{poName}</h3>
+                    <p className="text-xs font-semibold text-blue-400 mt-0.5">
+                      {customer || 'Production Order'}
+                      {customer && style ? <span className="text-white/50 font-normal"> • {style}</span> : null}
+                    </p>
                   </div>
                 </div>
 
@@ -107,14 +114,14 @@ export function BundleProductionView() {
                       <span className="text-sm text-white/60">{totalBundles} Used</span>
                     </div>
                   </div>
-                  <div className="w-32">
-                    <div className="flex justify-between text-[10px] mb-1">
-                      <span className="text-white/40">Progress</span>
-                      <span className="text-blue-400 font-mono">{progressPercent}%</span>
+                  <div className="w-36">
+                    <div className="flex items-center justify-between text-xs font-mono mb-1 gap-2">
+                      <span className="text-white/40 text-[11px]">Progress</span>
+                      <span className="text-blue-400 font-bold">{progressPercent}%</span>
                     </div>
-                    <div className="h-1.5 w-full bg-black/40 rounded-full overflow-hidden">
+                    <div className="h-2 w-full bg-black/40 rounded-full overflow-hidden border border-white/10 shadow-inner">
                       <div 
-                        className="h-full bg-blue-500 transition-all duration-500" 
+                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-500" 
                         style={{ width: `${progressPercent}%` }}
                       />
                     </div>

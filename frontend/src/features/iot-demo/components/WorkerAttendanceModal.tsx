@@ -54,8 +54,10 @@ export function WorkerAttendanceModal({
   if (!isOpen || !worker) return null;
 
   const name = `${worker.firstName || ''} ${worker.lastName || ''}`.trim() || worker.employeeCode;
-  const attendanceType = latestAttendance?.attendanceType || 'NONE';
+  const attendanceType = latestAttendance?.attendanceType;
   const isCheckedIn = attendanceType === 'IN';
+  const isCheckedOut = attendanceType === 'OUT';
+  const isAssigned = !isCheckedIn && !isCheckedOut;
 
   const formatTime = (timeVal?: string | Date) => {
     if (!timeVal) return 'Not recorded today';
@@ -70,8 +72,9 @@ export function WorkerAttendanceModal({
   const tapTimeStr = formatTime(latestAttendance?.tapTime);
 
   const handleAction = () => {
-    onToggleAttendance(worker.id, selectedBundleId);
-    if (!isCheckedIn && selectedBundleId && onClaimBundle) {
+    if (!isCheckedIn) {
+      onToggleAttendance(worker.id, selectedBundleId);
+    } else if (selectedBundleId && onClaimBundle) {
       onClaimBundle(selectedBundleId, worker.id);
     }
   };
@@ -106,17 +109,17 @@ export function WorkerAttendanceModal({
           <div
             className={cn(
               'p-5 rounded-2xl border transition-all flex items-start gap-4',
-              isCheckedIn
-                ? 'bg-emerald-950/40 border-emerald-500/40 shadow-lg shadow-emerald-950/30'
-                : 'bg-rose-950/40 border-rose-500/40 shadow-lg shadow-rose-950/30'
+              isCheckedIn && 'bg-emerald-950/40 border-emerald-500/40 shadow-lg shadow-emerald-950/30',
+              isCheckedOut && 'bg-rose-950/40 border-rose-500/40 shadow-lg shadow-rose-950/30',
+              isAssigned && 'bg-blue-950/40 border-blue-500/40 shadow-lg shadow-blue-950/30'
             )}
           >
             <div
               className={cn(
                 'w-14 h-14 rounded-2xl flex items-center justify-center font-extrabold text-xl shrink-0 shadow-md',
-                isCheckedIn
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                isCheckedIn && 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40',
+                isCheckedOut && 'bg-rose-500/20 text-rose-300 border border-rose-500/40',
+                isAssigned && 'bg-blue-500/20 text-blue-300 border border-blue-500/40'
               )}
             >
               {name.charAt(0).toUpperCase()}
@@ -128,18 +131,22 @@ export function WorkerAttendanceModal({
                 <span
                   className={cn(
                     'inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full border uppercase tracking-wider shrink-0',
-                    isCheckedIn
-                      ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-950/40'
-                      : 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-rose-950/40'
+                    isCheckedIn && 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-950/40',
+                    isCheckedOut && 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-rose-950/40',
+                    isAssigned && 'bg-blue-500/20 text-blue-300 border-blue-500/40 shadow-blue-950/40'
                   )}
                 >
                   {isCheckedIn ? (
                     <>
                       <UserCheck className="w-3 h-3 text-emerald-400" /> Present / Checked IN
                     </>
-                  ) : (
+                  ) : isCheckedOut ? (
                     <>
                       <UserX className="w-3 h-3 text-rose-400" /> Checked OUT / Absent
+                    </>
+                  ) : (
+                    <>
+                      <UserCheck className="w-3 h-3 text-blue-400" /> Assigned (Default)
                     </>
                   )}
                 </span>
@@ -249,13 +256,23 @@ export function WorkerAttendanceModal({
                 <p className="text-xs text-white/50 italic py-1">No available uncompleted bundles found for allocation.</p>
               )}
             </div>
-          ) : (
+          ) : isCheckedOut ? (
             <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-3">
               <UserX className="w-5 h-5 text-amber-400 shrink-0" />
               <div>
                 <p className="font-bold text-amber-200">Worker is Currently Checked OUT</p>
                 <p className="text-[11px] text-amber-300/80 mt-0.5">
                   Check in worker first. Bundle allocation options will unlock after check-in.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs flex items-center gap-3">
+              <UserCheck className="w-5 h-5 text-blue-400 shrink-0" />
+              <div>
+                <p className="font-bold text-blue-200">Worker Assigned (Default State)</p>
+                <p className="text-[11px] text-blue-300/80 mt-0.5">
+                  Click CHECK-IN WORKER FIRST to start bundle allocation.
                 </p>
               </div>
             </div>

@@ -20,12 +20,25 @@ export const mapBundleAPIToUI = (apiData: BundleAPI): Bundle => {
     WAITING: "delayed",
     COMPLETED: "completed",
     QC_COMPLETED: "completed",
+    REWORK: "rework",
+    HOLD: "on_hold",
   };
+
+  const orderNo = apiData.productionOrder?.orderNumber || (apiData.productionOrderId ? `PO-${apiData.productionOrderId}` : 'Unassigned Order');
+  const customer = apiData.productionOrder?.buyerName || '';
+  const style = apiData.productionOrder?.styleNumber || apiData.productionOrder?.styleName || '';
+
+  const machineLabel = apiData.currentMachine?.machineCode
+    ? `${apiData.currentMachine.machineCode}`
+    : apiData.currentMachine?.machineName;
 
   return {
     id: apiData.id.toString(),
     bundleNumber: apiData.bundleNumber,
-    productionOrder: `PO-${apiData.productionOrderId}`,
+    productionOrder: orderNo,
+    orderNumber: orderNo,
+    customerName: customer,
+    styleNumber: style,
     operation: apiData.currentOperation?.name || 'Unassigned',
     department: apiData.currentWorker?.department?.name || apiData.currentMachine?.department?.name || 'Unassigned',
     targetPieces: apiData.quantity,
@@ -34,11 +47,11 @@ export const mapBundleAPIToUI = (apiData: BundleAPI): Bundle => {
     currentWorker: apiData.currentWorker 
       ? `${apiData.currentWorker.firstName} ${apiData.currentWorker.lastName}` 
       : undefined,
-    currentMachine: apiData.currentMachine?.machineName,
+    currentMachine: machineLabel,
     priority: "medium" as BundlePriority, // Fallback for now
     status: statusMap[apiData.status] || "in_progress",
-    startedTime: (apiData.stageLogs && apiData.stageLogs.length > 0) ? apiData.stageLogs[apiData.stageLogs.length - 1].inTime : apiData.createdAt,
-    completedTime: apiData.status === 'COMPLETED' ? apiData.updatedAt : (apiData.stageLogs && apiData.stageLogs.length > 0 && apiData.stageLogs[apiData.stageLogs.length - 1].outTime) ? (apiData.stageLogs[apiData.stageLogs.length - 1].outTime ?? undefined) : undefined,
+    startedTime: (apiData.stageLogs && apiData.stageLogs.length > 0) ? apiData.stageLogs[0].inTime : apiData.createdAt,
+    completedTime: (apiData.status === 'COMPLETED' || apiData.status === 'QC_COMPLETED') ? apiData.updatedAt : (apiData.stageLogs && apiData.stageLogs.length > 0 && apiData.stageLogs[apiData.stageLogs.length - 1].outTime) ? (apiData.stageLogs[apiData.stageLogs.length - 1].outTime ?? undefined) : undefined,
     timeline: [],
     
     // Simulator helpers

@@ -47,11 +47,11 @@ export function MachineDemoCard({
       />
 
       <div className="min-w-0">
-        <div className="flex items-start justify-between gap-3 mb-3 pt-1">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2 mb-2.5 pt-1">
+          <div className="flex items-center gap-2 min-w-0">
             <div
               className={cn(
-                'w-9 h-9 rounded-xl flex items-center justify-center font-mono font-black text-xs transition-colors shrink-0',
+                'w-8 h-8 rounded-xl flex items-center justify-center font-mono font-black text-xs transition-colors shrink-0 shadow-inner',
                 isRunning
                   ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
                   : isWorkerPresent
@@ -61,18 +61,18 @@ export function MachineDemoCard({
             >
               <Cpu className="w-4 h-4" />
             </div>
-            <div className="min-w-0 flex-1">
-              <h4 className="text-xs font-bold text-white font-mono truncate">
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-white font-mono tracking-wider shrink-0">
                 {code}
               </h4>
-              <p className="text-[10px] text-white/50 truncate">{name}</p>
+              <p className="text-[10px] text-white/50 truncate max-w-[120px]">{name}</p>
             </div>
           </div>
 
-          {/* State Badge */}
+          {/* Compact State Badge */}
           <span
             className={cn(
-              'inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider shrink-0 whitespace-nowrap shadow-sm',
+              'inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider shrink-0 shadow-sm',
               isRunning
                 ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-950/40'
                 : isWorkerPresent
@@ -81,7 +81,7 @@ export function MachineDemoCard({
             )}
           >
             <Zap className={cn('w-3 h-3', isRunning && 'animate-pulse text-emerald-400')} />
-            {statusLabel}
+            {isRunning ? 'RUNNING' : isWorkerPresent ? 'READY' : 'IDLE'}
           </span>
         </div>
 

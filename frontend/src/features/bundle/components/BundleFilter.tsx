@@ -76,6 +76,8 @@ export function BundleFilter() {
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
             <SelectItem value="delayed">Delayed</SelectItem>
+            <SelectItem value="on_hold">On Hold</SelectItem>
+            <SelectItem value="rework">Rework</SelectItem>
           </SelectContent>
         </Select>
 

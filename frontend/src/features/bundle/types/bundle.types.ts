@@ -1,12 +1,15 @@
 import { z } from "zod";
 
-export type BundleStatus = "in_progress" | "completed" | "rejected" | "delayed";
+export type BundleStatus = "in_progress" | "completed" | "rejected" | "delayed" | "on_hold" | "rework";
 export type BundlePriority = "low" | "medium" | "high" | "urgent";
 
 export interface Bundle {
   id: string;
   bundleNumber: string;
   productionOrder: string;
+  orderNumber?: string;
+  customerName?: string;
+  styleNumber?: string;
   operation: string;
   department: string;
   
@@ -63,6 +66,15 @@ export interface BundleAPI {
   status: string;
   createdAt: string;
   updatedAt: string;
+  
+  // Relations
+  productionOrder?: {
+    id: number;
+    orderNumber: string;
+    buyerName: string;
+    styleNumber: string;
+    styleName: string;
+  };
   
   // Relations
   currentMachine?: { id: number; machineName: string; machineCode: string; department?: { name: string } };

@@ -7,9 +7,12 @@ export class ProductionOrderRepository {
   }
 
   async findAll() {
-    return prisma.productionOrder.findMany({
+    const orders = await prisma.productionOrder.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
+        bundles: {
+          select: { completedQuantity: true }
+        },
         productionTasks: {
           select: { 
             workerId: true, 
@@ -23,10 +26,21 @@ export class ProductionOrderRepository {
         }
       }
     });
+
+    return orders.map(order => {
+      const bundleCompleted = order.bundles && order.bundles.length > 0
+        ? order.bundles.reduce((acc, b) => acc + (b.completedQuantity || 0), 0)
+        : order.completedQuantity;
+
+      return {
+        ...order,
+        completedQuantity: bundleCompleted
+      };
+    });
   }
 
   async findById(id: number) {
-    return prisma.productionOrder.findUnique({
+    const order = await prisma.productionOrder.findUnique({
       where: { id },
       include: { 
         bundles: true,
@@ -43,6 +57,17 @@ export class ProductionOrderRepository {
         }
       }
     });
+
+    if (!order) return null;
+
+    const bundleCompleted = order.bundles && order.bundles.length > 0
+      ? order.bundles.reduce((acc, b) => acc + (b.completedQuantity || 0), 0)
+      : order.completedQuantity;
+
+    return {
+      ...order,
+      completedQuantity: bundleCompleted
+    };
   }
 
   async findByOrderNumber(orderNumber: string) {
