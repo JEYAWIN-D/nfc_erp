@@ -214,33 +214,50 @@ export function WorkerAttendanceModal({
             </div>
           )}
 
-          {/* Available Bundle Selector when Checking IN or Present */}
-          {availableBundles.length > 0 && (
-            <div className="p-3.5 rounded-xl bg-zinc-950 border border-white/10 space-y-2">
-              <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-blue-400" /> Select Bundle to Work On:
+          {/* Bundle Selection: ONLY unlocked AFTER worker is Checked IN */}
+          {isCheckedIn ? (
+            <div className="p-3.5 rounded-xl bg-zinc-950 border border-emerald-500/30 space-y-2.5">
+              <label className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider flex items-center justify-between">
+                <span className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-emerald-400" /> Select Bundle to Allocate to Present Worker:
+                </span>
+                <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">UNLOCKED</span>
               </label>
-              <select
-                value={selectedBundleId || ''}
-                onChange={(e) => setSelectedBundleId(e.target.value ? Number(e.target.value) : undefined)}
-                className="w-full bg-zinc-900 border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-blue-500"
-              >
-                <option value="">(Optional) No Bundle / Select Later</option>
-                {availableBundles.map((b: any) => {
-                  const otherWorkerName = b.currentWorker
-                    ? `${b.currentWorker.firstName || ''} ${b.currentWorker.lastName || ''}`.trim() || b.currentWorker.employeeCode
-                    : null;
-                  const inUseLabel = otherWorkerName
-                    ? ` (In Use by ${otherWorkerName} — Select to Take Over)`
-                    : ` (${b.status === 'CREATED' ? 'Ready' : b.status})`;
+              {availableBundles.length > 0 ? (
+                <select
+                  value={selectedBundleId || ''}
+                  onChange={(e) => setSelectedBundleId(e.target.value ? Number(e.target.value) : undefined)}
+                  className="w-full bg-zinc-900 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-emerald-400 shadow-inner"
+                >
+                  <option value="">-- Choose Bundle to Allocate --</option>
+                  {availableBundles.map((b: any) => {
+                    const otherWorkerName = b.currentWorker
+                      ? `${b.currentWorker.firstName || ''} ${b.currentWorker.lastName || ''}`.trim() || b.currentWorker.employeeCode
+                      : null;
+                    const inUseLabel = otherWorkerName
+                      ? ` (In Use by ${otherWorkerName})`
+                      : ` (${b.status === 'CREATED' ? 'Ready' : b.status})`;
 
-                  return (
-                    <option key={b.id} value={b.id}>
-                      {b.bundleNumber} — {b.quantity} Pcs Batch{inUseLabel}
-                    </option>
-                  );
-                })}
-              </select>
+                    return (
+                      <option key={b.id} value={b.id}>
+                        {b.bundleNumber} — {b.quantity} Pcs Batch{inUseLabel}
+                      </option>
+                    );
+                  })}
+                </select>
+              ) : (
+                <p className="text-xs text-white/50 italic py-1">No available uncompleted bundles found for allocation.</p>
+              )}
+            </div>
+          ) : (
+            <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-center gap-3">
+              <UserX className="w-5 h-5 text-amber-400 shrink-0" />
+              <div>
+                <p className="font-bold text-amber-200">Worker is Currently Checked OUT</p>
+                <p className="text-[11px] text-amber-300/80 mt-0.5">
+                  Check in worker first. Bundle allocation options will unlock after check-in.
+                </p>
+              </div>
             </div>
           )}
 
@@ -251,22 +268,23 @@ export function WorkerAttendanceModal({
                 disabled={isLoading}
                 onClick={() => {
                   if (!isCheckedIn) {
-                    if (!selectedBundleId && availableBundles.length > 0 && activeBundles.length === 0) {
-                      toast.warning("Please select a bundle to work on before Checking IN.");
-                      return;
-                    }
-                    onToggleAttendance(worker.id, selectedBundleId);
-                    if (selectedBundleId && onClaimBundle) {
-                      onClaimBundle(selectedBundleId, worker.id);
-                    }
+                    // 1. Check IN worker first
+                    onToggleAttendance(worker.id);
                   } else if (selectedBundleId && onClaimBundle) {
+                    // 2. Allocate bundle to present worker
                     onClaimBundle(selectedBundleId, worker.id);
+                    setSelectedBundleId(undefined);
+                    toast.success("Bundle allocated to present worker!");
+                  } else {
+                    toast.info("Worker is already Checked IN. Select a bundle above to allocate.");
                   }
                 }}
                 className={cn(
                   'py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer border shadow-lg',
                   isCheckedIn
-                    ? 'bg-emerald-600/30 border-emerald-400 text-emerald-200 ring-2 ring-emerald-400/40 shadow-emerald-950/50'
+                    ? selectedBundleId
+                      ? 'bg-gradient-to-r from-blue-600 to-emerald-600 hover:from-blue-500 hover:to-emerald-500 text-white border-blue-400 ring-2 ring-blue-400/40'
+                      : 'bg-emerald-600/30 border-emerald-400 text-emerald-200'
                     : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white border-emerald-500/50 shadow-emerald-950/40'
                 )}
               >
@@ -275,7 +293,11 @@ export function WorkerAttendanceModal({
                 ) : (
                   <>
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    {isCheckedIn ? (selectedBundleId ? 'CLAIM SELECTED BUNDLE' : 'PRESENT (CHECKED IN)') : 'CHECK-IN WORKER'}
+                    {!isCheckedIn
+                      ? 'CHECK-IN WORKER FIRST'
+                      : selectedBundleId
+                      ? 'ALLOCATE SELECTED BUNDLE'
+                      : 'PRESENT (CHECKED IN)'}
                   </>
                 )}
               </button>
@@ -290,7 +312,7 @@ export function WorkerAttendanceModal({
                 className={cn(
                   'py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 active:scale-98 cursor-pointer border shadow-lg',
                   !isCheckedIn
-                    ? 'bg-rose-600/30 border-rose-400 text-rose-200 ring-2 ring-rose-400/40 shadow-rose-950/50'
+                    ? 'bg-rose-900/20 border-rose-500/20 text-rose-400/60 cursor-not-allowed'
                     : 'bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 text-white border-rose-500/50 shadow-rose-950/40'
                 )}
               >

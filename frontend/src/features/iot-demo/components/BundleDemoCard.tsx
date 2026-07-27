@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Layers, ArrowRight, Lock, CheckCircle2, Loader2, User, UserCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface BundleDemoCardProps {
   bundle: any;
@@ -56,6 +57,10 @@ export function BundleDemoCard({
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isLoading && !isLocked) {
+      if (status === 'CREATED' && presentWorkers.length === 0 && !assignedWorkerName) {
+        toast.warning("No workers are currently Checked IN. Please check in a worker first to allocate bundles.");
+        return;
+      }
       onAdvance(selectedWorkerId);
     }
   };
