@@ -150,7 +150,7 @@ export default function PlanningBoardPage() {
         {/* Filters */}
         <div className="flex items-center gap-3 flex-wrap">
           {/* Order Dropdown */}
-          <Select value={selectedOrderFilter} onValueChange={setSelectedOrderFilter}>
+          <Select value={selectedOrderFilter} onValueChange={(val) => setSelectedOrderFilter(val ?? "all")}>
             <SelectTrigger className="w-[220px] bg-zinc-900 border-white/10 h-10 text-xs">
               <Package className="w-3.5 h-3.5 text-blue-400 mr-2 flex-shrink-0" />
               <SelectValue placeholder="All Production Orders" />
