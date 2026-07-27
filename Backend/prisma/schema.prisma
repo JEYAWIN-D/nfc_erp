@@ -512,3 +512,16 @@ enum QCCheckStatus {
   FAIL
   REWORK
 }
+
+model ActivityLog {
+  id                String   @id @default(uuid())
+  timestamp         DateTime @default(now())
+  category          String
+  eventType         String
+  message           String
+  details           Json?
+  productionOrderId Int?
+
+  @@map("activity_logs")
+}
+

@@ -19,7 +19,6 @@ export const mapBundleAPIToUI = (apiData: BundleAPI): Bundle => {
     IN_PROGRESS: "in_progress",
     WAITING: "delayed",
     COMPLETED: "completed",
-    QC_PENDING: "completed",
     QC_COMPLETED: "completed",
   };
 
