@@ -7,6 +7,10 @@ An end-to-end Smart Factory ERP and Real-Time Production Management System built
 ## 📌 Table of Contents
 
 - [Overview](#-overview)
+- [End-to-End System Workflow](#-end-to-end-system-workflow)
+- [Frontend & Backend Modules](#-frontend--backend-modules)
+  - [Frontend Modules](#-frontend-modules)
+  - [Backend Modules](#-backend-modules)
 - [Tech Stack](#-tech-stack)
 - [Project Architecture](#-project-architecture)
 - [Prerequisites](#-prerequisites)
@@ -24,7 +28,71 @@ An end-to-end Smart Factory ERP and Real-Time Production Management System built
 
 ## 🚀 Overview
 
-FactoryOS is designed to monitor live factory floor operations, manage machine assignments, track worker attendance, process production orders, manage bundles, handle quality control (QC), and generate operational analytics in real-time.
+FactoryOS is an integrated Smart Factory ERP & Manufacturing Execution System (MES). It provides real-time monitoring of factory floor operations, tracks worker attendance and shift assignments, manages production orders broken down into bundles, tracks stage-by-stage terminal transactions, monitors machine status via IoT telemetry, logs quality control inspections, and delivers operational analytics.
+
+---
+
+## 🔄 End-to-End System Workflow
+
+```text
+[1. Master Setup] ──► [2. Production Orders & Bundles] ──► [3. Worker & Shift Allocation]
+                                                                    │
+[6. Reports & Analytics] ◄── [5. Quality Control (QC)] ◄── [4. Live Terminal Scan / IoT Telemetry]
+```
+
+1. **Master Configuration**: Set up Factory Layout, Departments, Rooms, Machine Types, Machines, Hardware Terminals, and Worker profiles.
+2. **Order & Bundle Creation**: Create Production Orders with Target Quantities and Styles; auto-generate Production Bundles with RFID/NFC Tag tracking.
+3. **Workforce Allocation**: Clock in workers (Attendance), assign operators to specific Machines and Terminals for each shift.
+4. **Floor Execution & IoT Tracking**: Hardware Terminals scan tags at each production operation/stage. Real-time updates stream to the 3D Factory Floor dashboard via Socket.IO.
+5. **Quality Control (QC)**: Inspectors audit completed bundles, log pass/fail metrics, defect types, and route items for rework if necessary.
+6. **Analytics & Insights**: View live machine utilization, line output, worker productivity metrics, and export summary reports.
+
+---
+
+## 🧩 Frontend & Backend Modules
+
+### 🎨 Frontend Modules
+
+The frontend is built with React 19, Vite, Tailwind CSS, Zustand, and Socket.IO Client.
+
+| Module | Location (`frontend/src/features/`) | Description |
+| :--- | :--- | :--- |
+| **Dashboard** | `factory/` | Executive overview showing live active orders, output rates, active machines, and active workforce metrics. |
+| **Live Factory & 3D Layout** | `factory-layout/` | Interactive 2D/3D visualization of the factory floor layout, room boundaries, machine positioning, and live status indicators. |
+| **Production Orders** | `production-order/` | Manage production orders, target quantities, deadlines, and track order completion progress. |
+| **Bundles & Tag Workflow** | `bundle/`, `tag-workflow/` | Generate, manage, and track individual production bundles, tag assignments, and stage-by-stage bundle movement. |
+| **Machines & Types** | `machine/` | Master management for factory machinery, maintenance status, active operators, and machine type definitions. |
+| **Terminals & IoT** | `terminal/`, `iot/`, `iot-demo/` | Terminal station management, IP address mapping, live terminal scan feeds, and simulated IoT sensor metrics. |
+| **Departments & Rooms** | `department/` | Organizational unit management, line assignments, and room layout definitions. |
+| **Workers & Management** | `worker/`, `user-management/` | Worker profiles, skill levels, employee IDs, and role permissions. |
+| **Shift Management** | `shift/` | Define shift schedules (Morning, Evening, Night), shift hours, and active shift rosters. |
+| **Worker Assignments** | `assignment/` | Daily allocation matrix mapping workers to specific machines and terminals per shift. |
+| **Attendance & Clocking** | `attendance/` | Clock-in / clock-out tracking, daily attendance logs, and workforce presence reports. |
+| **Quality Control (QC)** | `qc/` | Inspection checkpoints, logging passed vs. defective units, defect categorization, and rework queue. |
+| **Production Planning** | `planning/` | Operational routing, sequence of operations per style/garment, and target cycle times. |
+| **Reports & Analytics** | `reports/` | Visual analytics charts, production trends, machine efficiency, and PDF/Excel export tools. |
+| **Settings** | `settings/` | Application preferences, theme selection (Dark/Light mode), and API/WebSocket connectivity status. |
+
+---
+
+### ⚙️ Backend Modules
+
+The backend is built with Express, TypeScript, Prisma ORM, Socket.IO, PostgreSQL, Zod, and JWT.
+
+| Module | Location (`Backend/src/modules/`) | Description |
+| :--- | :--- | :--- |
+| **Auth** | `auth/` | Authentication controller, JWT issuance, password hashing (`bcryptjs`), and permission middleware. |
+| **Production Order** | `production-order/` | CRUD operations for production orders, status transitions, and target completion tracking. |
+| **Bundle & Stage Log** | `bundle/`, `stage-log/` | Bundle generation, RFID/NFC tag association, and immutable historical logs of every stage completed. |
+| **Operation** | `operation/` | Master list of manufacturing operations, standard allowed minutes (SAM), and sequence order. |
+| **Machine & Machine Type** | `machine/`, `machine-type/` | Machine inventory APIs, machine status updates (Active, Inactive, Maintenance), and type definitions. |
+| **Terminal & IoT** | `terminal/`, `iot/` | Hardware terminal API endpoints for handling barcode/NFC scans, pulse inputs, and IoT sensor payloads. |
+| **Department, Room & Floor** | `department/`, `room/`, `floor/` | Structural hierarchy of the physical factory floor for spatial mapping and room analytics. |
+| **Worker & Attendance** | `worker/`, `attendance/` | Operator registry, RFID badge verification, attendance clocking, and daily work logs. |
+| **Shift & Assignment** | `shift/`, `assignment/` | Shift configuration and worker-to-machine assignment validation logic. |
+| **QC Check** | `qc-check/` | Defect tracking API, inspection log storage, and pass/fail/rework calculations. |
+| **Dashboard & Reports** | `dashboard/`, `reports/` | Aggregated analytics queries, efficiency calculations, and PDF/Excel generation engines. |
+| **WebSocket** | `websocket/` | Central Socket.IO server broadcasting real-time events (`TERMINAL_SCAN`, `MACHINE_STATUS`, `ALERT`). |
 
 ---
 
@@ -58,7 +126,7 @@ NFC/
 │   ├── src/                 # Application source code
 │   │   ├── config/          # Environment configuration
 │   │   ├── middleware/      # Auth, error handling, CORS middlewares
-│   │   ├── modules/         # Feature modules (auth, workers, machines, etc.)
+│   │   ├── modules/         # 22 Feature modules (auth, workers, bundles, etc.)
 │   │   ├── routes/          # API route definitions
 │   │   └── server.ts        # HTTP & WebSocket entry point
 │   ├── .env.example         # Template for backend environment variables
@@ -67,6 +135,9 @@ NFC/
 │
 ├── frontend/                # React + Vite Frontend UI
 │   ├── src/                 # React components, pages, stores, services
+│   │   ├── features/        # 21 UI feature modules (factory, bundle, qc, etc.)
+│   │   ├── components/      # Reusable UI widgets & design system
+│   │   └── services/        # API and Socket services
 │   ├── .env.example         # Template for frontend environment variables
 │   ├── .gitignore           # Git ignore rules for Frontend
 │   └── package.json         # Frontend dependencies & scripts
