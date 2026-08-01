@@ -64,6 +64,15 @@ export class DashboardController {
       next(error);
     }
   }
+
+  async getExtendedFeatures(req: Request, res: Response, next: NextFunction) {
+    try {
+      const extended = await dashboardService.getExtendedFeatures();
+      res.status(200).json(extended);
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const dashboardController = new DashboardController();

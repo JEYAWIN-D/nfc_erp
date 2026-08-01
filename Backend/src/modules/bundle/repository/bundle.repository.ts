@@ -14,7 +14,8 @@ export class BundleRepository {
         currentMachine: { include: { department: true, terminal: true } },
         currentWorker: { include: { department: true } },
         stageLogs: {
-          orderBy: { inTime: 'asc' }
+          orderBy: { inTime: 'asc' },
+          include: { operation: true, operator: true }
         },
         tagAssignments: {
           where: { status: 'ASSIGNED' }
@@ -33,7 +34,8 @@ export class BundleRepository {
         currentMachine: { include: { department: true, terminal: true } },
         currentWorker: { include: { department: true } },
         stageLogs: {
-          orderBy: { inTime: 'asc' }
+          orderBy: { inTime: 'asc' },
+          include: { operation: true, operator: true }
         },
         tagAssignments: {
           where: { status: 'ASSIGNED' }
@@ -58,7 +60,8 @@ export class BundleRepository {
         currentMachine: { include: { department: true, terminal: true } },
         currentWorker: { include: { department: true } },
         stageLogs: {
-          orderBy: { inTime: 'asc' }
+          orderBy: { inTime: 'asc' },
+          include: { operation: true, operator: true }
         },
         tagAssignments: {
           where: { status: 'ASSIGNED' }
@@ -77,7 +80,8 @@ export class BundleRepository {
         currentMachine: { include: { department: true, terminal: true } },
         currentWorker: { include: { department: true } },
         stageLogs: {
-          orderBy: { inTime: 'asc' }
+          orderBy: { inTime: 'asc' },
+          include: { operation: true, operator: true }
         },
         tagAssignments: {
           where: { status: 'ASSIGNED' }

@@ -6,6 +6,9 @@ import { ProtectedRoute, GuestRoute } from "./guards";
 // Auth
 import LoginPage from "@/features/settings/LoginPage";
 
+// Dashboard
+import DashboardPage from "@/features/dashboard/DashboardPage";
+
 import LiveFactoryPage from "@/features/factory/LiveFactoryPage";
 
 // Terminals (Standalone fullscreen apps)
@@ -68,7 +71,7 @@ export function AppRouter() {
   return (
     <Routes>
       {/* Root redirect */}
-      <Route path="/" element={<Navigate to="/planning/center" replace />} />
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
       {/* Auth routes (guests only) */}
       <Route element={<GuestRoute />}>
@@ -85,6 +88,7 @@ export function AppRouter() {
         <Route path="/terminal/qc" element={<QCTerminalPage />} />
 
         <Route element={<DashboardLayout />}>
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/planning/center" element={<PlanningCenterPage />} />
           <Route path="/planning/board" element={<PlanningBoardPage />} />
           <Route path="/live-factory" element={<LiveFactoryPage />} />

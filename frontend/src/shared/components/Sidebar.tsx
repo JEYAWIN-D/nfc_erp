@@ -43,8 +43,9 @@ import {
 import type { NavItem } from "@/shared/types";
 
 const NAV_ITEMS: NavItem[] = [
+  { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" },
   { label: "Production Orders", icon: FileText, path: "/production-orders" },
-  { label: "Production Planning", icon: LayoutDashboard, path: "/planning/center" },
+  { label: "Production Planning", icon: CalendarDays, path: "/planning/center" },
   { label: "Planning Board", icon: Kanban, path: "/planning/board" },
   { label: "Production Execution", icon: Zap, path: "/iot-demo" },
   { label: "Live Factory", icon: Factory, path: "/live-factory" },

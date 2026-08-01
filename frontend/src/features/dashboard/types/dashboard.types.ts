@@ -53,6 +53,28 @@ export interface LiveMachineCard {
   machineStatus: "RUNNING" | "IDLE" | "OFFLINE";
 }
 
+export interface AttendanceTapRecord {
+  id: number;
+  workerId: number;
+  tapTime: string;
+  attendanceType: "IN" | "OUT";
+  worker: {
+    id: number;
+    employeeCode: string;
+    firstName: string;
+    lastName: string;
+  };
+  shift: {
+    id: number;
+    shiftName: string;
+  } | null;
+  machine: {
+    id: number;
+    machineCode: string;
+    machineName: string;
+  } | null;
+}
+
 export interface LeaderboardItem {
   name: string;
   employeeCode: string;

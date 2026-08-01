@@ -10,5 +10,6 @@ router.get('/production', dashboardController.getProductionSummary.bind(dashboar
 router.get('/qc', dashboardController.getQCSummary.bind(dashboardController));
 router.get('/attendance', dashboardController.getAttendanceSummary.bind(dashboardController));
 router.get('/live-floor', dashboardController.getLiveFloor.bind(dashboardController));
+router.get('/extended-features', dashboardController.getExtendedFeatures.bind(dashboardController));
 
 export const dashboardRoutes = router;

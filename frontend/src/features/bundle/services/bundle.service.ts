@@ -32,6 +32,27 @@ export const mapBundleAPIToUI = (apiData: BundleAPI): Bundle => {
     ? `${apiData.currentMachine.machineCode}`
     : apiData.currentMachine?.machineName;
 
+  // Resolve operation name
+  let operationName = apiData.currentOperation?.operationName || apiData.currentOperation?.name;
+  if (!operationName && apiData.stageLogs && apiData.stageLogs.length > 0) {
+    const lastLog = apiData.stageLogs[apiData.stageLogs.length - 1];
+    operationName = lastLog.operation?.operationName || lastLog.operation?.name;
+  }
+  if (!operationName) {
+    operationName = 'Unassigned';
+  }
+
+  // Resolve worker name
+  let workerName = apiData.currentWorker 
+    ? `${apiData.currentWorker.firstName} ${apiData.currentWorker.lastName}` 
+    : undefined;
+  if (!workerName && apiData.stageLogs && apiData.stageLogs.length > 0) {
+    const lastLog = apiData.stageLogs[apiData.stageLogs.length - 1];
+    if (lastLog.operator) {
+      workerName = `${lastLog.operator.firstName} ${lastLog.operator.lastName}`;
+    }
+  }
+
   return {
     id: apiData.id.toString(),
     bundleNumber: apiData.bundleNumber,
@@ -39,14 +60,12 @@ export const mapBundleAPIToUI = (apiData: BundleAPI): Bundle => {
     orderNumber: orderNo,
     customerName: customer,
     styleNumber: style,
-    operation: apiData.currentOperation?.name || 'Unassigned',
+    operation: operationName,
     department: apiData.currentWorker?.department?.name || apiData.currentMachine?.department?.name || 'Unassigned',
     targetPieces: apiData.quantity,
     completedPieces: apiData.completedQuantity,
     defectivePieces: 0, // Mock fallback for UI
-    currentWorker: apiData.currentWorker 
-      ? `${apiData.currentWorker.firstName} ${apiData.currentWorker.lastName}` 
-      : undefined,
+    currentWorker: workerName,
     currentMachine: machineLabel,
     priority: "medium" as BundlePriority, // Fallback for now
     status: statusMap[apiData.status] || "in_progress",

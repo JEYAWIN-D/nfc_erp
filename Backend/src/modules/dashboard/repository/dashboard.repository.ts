@@ -144,4 +144,63 @@ export class DashboardRepository {
       orderBy: { tapTime: 'desc' }
     });
   }
+
+  async getExtendedData() {
+    const startOfToday = this.getStartOfToday();
+    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+    const [
+      terminals,
+      workers,
+      productionOrders,
+      departments,
+      shifts,
+      qcLogs,
+      quarantineLogs
+    ] = await Promise.all([
+      prisma.terminal.findMany({
+        orderBy: { terminalCode: 'asc' }
+      }),
+      prisma.worker.findMany({
+        where: { status: 'ACTIVE' },
+        take: 10
+      }),
+      prisma.productionOrder.findMany({
+        where: { status: { in: ['PLANNED', 'IN_PROGRESS'] } },
+        take: 5
+      }),
+      prisma.department.findMany({
+        include: {
+          machines: {
+            where: { status: 'ACTIVE' },
+            include: { terminal: true, assignments: { where: { status: 'ACTIVE' } } }
+          }
+        }
+      }),
+      prisma.shift.findMany({
+        where: { status: 'ACTIVE' }
+      }),
+      prisma.qCCheckLog.findMany({
+        where: { checkedAt: { gte: startOfToday } },
+        select: { status: true, defectNotes: true }
+      }),
+      prisma.qCCheckLog.findMany({
+        where: { status: 'FAIL' },
+        include: { bundle: true, operation: true },
+        take: 5,
+        orderBy: { checkedAt: 'desc' }
+      })
+    ]);
+
+    return {
+      terminals,
+      workers,
+      productionOrders,
+      departments,
+      shifts,
+      qcLogs,
+      quarantineLogs,
+      fiveMinsAgo
+    };
+  }
 }

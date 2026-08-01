@@ -78,7 +78,7 @@ export interface BundleAPI {
   
   // Relations
   currentMachine?: { id: number; machineName: string; machineCode: string; department?: { name: string } };
-  currentOperation?: { id: number; name: string };
+  currentOperation?: { id: number; operationName?: string; operationCode?: string; name?: string };
   currentWorker?: { id: number; firstName: string; lastName: string; employeeCode: string; nfcCardId: string; department?: { name: string } };
   
   stageLogs?: {
@@ -86,6 +86,8 @@ export interface BundleAPI {
     inTime: string;
     outTime: string | null;
     operationId: number;
+    operation?: { id: number; operationName?: string; operationCode?: string; name?: string };
+    operator?: { id: number; firstName: string; lastName: string };
   }[];
   
   tagAssignments?: {

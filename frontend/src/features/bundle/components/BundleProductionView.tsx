@@ -74,8 +74,9 @@ export function BundleProductionView() {
         
         // Compute aggregates
         const totalBundles = poBundles.length;
-        const usedBundles = poBundles.filter(b => b.status === "in_progress" || b.status === "completed").length;
-        const progressPercent = totalBundles > 0 ? Math.round((usedBundles / totalBundles) * 100) : 0;
+        const completedBundles = poBundles.filter(b => b.status === "completed").length;
+        const inProgressBundles = poBundles.filter(b => b.status === "in_progress").length;
+        const progressPercent = totalBundles > 0 ? Math.round((completedBundles / totalBundles) * 100) : 0;
 
         const firstBundle = poBundles[0];
         const customer = firstBundle?.customerName;
@@ -107,11 +108,11 @@ export function BundleProductionView() {
 
                 <div className="hidden md:flex items-center gap-8 pl-8 border-l border-white/10">
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1">Bundles Status</p>
+                    <p className="text-[10px] uppercase tracking-wider text-white/40 mb-1">Bundles Completed</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-white">{usedBundles}</span>
+                      <span className="text-sm font-semibold text-emerald-400">{completedBundles}</span>
                       <span className="text-sm text-white/30">/</span>
-                      <span className="text-sm text-white/60">{totalBundles} Used</span>
+                      <span className="text-sm text-white/60">{totalBundles} Total</span>
                     </div>
                   </div>
                   <div className="w-36">
