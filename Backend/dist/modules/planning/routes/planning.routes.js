@@ -13,6 +13,4 @@ router.patch("/tasks/:id", planning_controller_1.planningController.updateTask);
 router.post("/scheduler/auto/:id", planning_controller_1.planningController.runAutoScheduler);
 router.post("/publish", planning_controller_1.planningController.publishPlan);
 router.get("/history", planning_controller_1.planningController.getHistory);
-router.get("/operations/:id/bundles", planning_controller_1.planningController.getOpenBundles.bind(planning_controller_1.planningController));
-router.get("/terminals", planning_controller_1.planningController.getTerminals.bind(planning_controller_1.planningController));
 exports.planningRoutes = router;

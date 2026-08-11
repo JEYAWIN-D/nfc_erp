@@ -193,41 +193,16 @@ async function main() {
     { code: 'EMP-0010', nfc: 'NFC-AA0010', first: 'Anitha', last: 'Subramanian', gender: 'F', dept: deptSewing, grade: gradeC },
   ];
 
-  // Dynamically generate unique real workers
-  const realNames = [
-    { first: 'Ravi', last: 'Kumar' }, { first: 'Priya', last: 'Sharma' }, { first: 'Suresh', last: 'Babu' },
-    { first: 'Meena', last: 'Raj' }, { first: 'Arjun', last: 'Singh' }, { first: 'Lakshmi', last: 'Nair' },
-    { first: 'Ganesh', last: 'Murthy' }, { first: 'Kavitha', last: 'Krishnan' }, { first: 'Dinesh', last: 'Pandey' },
-    { first: 'Anitha', last: 'Subramanian' }, { first: 'Manoj', last: 'Kumar' }, { first: 'Deepa', last: 'Sundaram' },
-    { first: 'Ramesh', last: 'Verma' }, { first: 'Sunita', last: 'Reddy' }, { first: 'Karthik', last: 'Raja' },
-    { first: 'Divya', last: 'Lakshmi' }, { first: 'Arul', last: 'Dass' }, { first: 'Meenakshi', last: 'Sundaram' },
-    { first: 'Vijay', last: 'Kumar' }, { first: 'Lakshmanan', last: 'Pillai' }, { first: 'Saravanan', last: 'Iyer' },
-    { first: 'Yamuna', last: 'Devi' }, { first: 'Harish', last: 'Chandra' }, { first: 'Rekha', last: 'Gupta' },
-    { first: 'Sathish', last: 'Kumar' }, { first: 'Vimala', last: 'Rani' }, { first: 'Ashok', last: 'Venkatesh' },
-    { first: 'Bhuvaneshwari', last: 'Natarajan' }, { first: 'Chitra', last: 'Devi' }, { first: 'Dharmendra', last: 'Yadav' },
-    { first: 'Ezhil', last: 'Arasan' }, { first: 'Fatima', last: 'Beevi' }, { first: 'Gokul', last: 'Nath' },
-    { first: 'Hemalatha', last: 'Sekar' }, { first: 'Indrajith', last: 'Sen' }, { first: 'Jayanthi', last: 'Mani' },
-    { first: 'Kowsalya', last: 'Kannan' }, { first: 'Loganathan', last: 'Pillai' }, { first: 'Mohanraj', last: 'Bose' },
-    { first: 'Nithya', last: 'Shree' }, { first: 'Om', last: 'Prakash' }, { first: 'Padmavathi', last: 'Rao' },
-    { first: 'Raghuraman', last: 'Swamy' }, { first: 'Sangeetha', last: 'Varadhan' }, { first: 'Thirunavukkarasu', last: 'Mudaliar' },
-    { first: 'Uma', last: 'Maheshwari' }, { first: 'Venkatesh', last: 'Prabhu' }, { first: 'Yashoda', last: 'Nandan' },
-    { first: 'Zahir', last: 'Hussain' }
-  ];
-
+  // Dynamically generate 50 additional workers
+  const firstNames = ['Amit', 'Raj', 'Sita', 'Gita', 'Mohan', 'Suresh', 'Ramesh', 'Rani', 'Geeta', 'Neha', 'Pooja', 'Vikram', 'Anil', 'Sunil', 'Kiran', 'Asha', 'Usha', 'Deepa', 'Jyoti', 'Kavita', 'Manoj', 'Rakesh', 'Sanjay', 'Vijay', 'Ajay'];
+  const lastNames = ['Kumar', 'Sharma', 'Singh', 'Patel', 'Yadav', 'Gupta', 'Verma', 'Reddy', 'Nair', 'Menon', 'Iyer', 'Das', 'Bose', 'Dutta', 'Chowdhury', 'Sen', 'Pillai', 'Rao', 'Deshmukh', 'Patil'];
   for (let i = 11; i <= 60; i++) {
-    const nameObj = realNames[(i - 11) % realNames.length];
+    const first = firstNames[i % firstNames.length];
+    const last = lastNames[i % lastNames.length];
     const gender = i % 2 === 0 ? 'M' : 'F';
     const dept = i % 3 === 0 ? deptCutting : i % 2 === 0 ? deptFinishing : deptSewing;
     const grade = i % 5 === 0 ? gradeA : i % 2 === 0 ? gradeB : gradeC;
-    workerData.push({
-      code: `EMP-${i.toString().padStart(4, '0')}`,
-      nfc: `NFC-AA${i.toString().padStart(4, '0')}`,
-      first: nameObj.first,
-      last: nameObj.last,
-      gender,
-      dept,
-      grade
-    });
+    workerData.push({ code: `EMP-${i.toString().padStart(4, '0')}`, nfc: `NFC-AA${i.toString().padStart(4, '0')}`, first, last, gender, dept, grade });
   }
 
   const workers = [];
@@ -293,25 +268,10 @@ async function main() {
   }
 
   // =============================================
-  // 4. BUNDLE TAGS (seeded early so stage logs can reference them)
+  // 4. BUNDLES
   // =============================================
-  console.log('Creating bundle tags...');
-  for (let i = 1; i <= 500; i++) {
-    const tagCode = `TAG-RFID-${i.toString().padStart(4, '0')}`;
-    try {
-      await prisma.bundleTagAssignment.upsert({
-        where: { tagCode },
-        update: {},
-        create: { tagCode, status: 'AVAILABLE' }
-      });
-    } catch (e) { /* skip */ }
-  }
-
-  // =============================================
-  // 5. BUNDLES
-  // =============================================
-  console.log('Creating bundles...');
-  const bundleStatuses = ['IN_PROGRESS', 'COMPLETED', 'CREATED', 'QC_COMPLETED', 'WAITING'] as const;
+  console.log('Creating bundles & transactions...');
+  const bundleStatuses = ['IN_PROGRESS', 'COMPLETED', 'CREATED', 'WAITING'] as const;
   const createdBundles = [];
 
   // Create 20 bundles for first 2 POs
@@ -338,44 +298,32 @@ async function main() {
   }
 
   // =============================================
-  // 6. BUNDLE STAGE LOGS & QC
+  // 5. BUNDLE TRANSACTIONS & QC
   // =============================================
-  console.log('Creating stage logs & QC records...');
-
-  // Fetch a real tag to use as tagId for stage logs
-  const seedTag = await prisma.bundleTagAssignment.findFirst();
-  if (!seedTag) throw new Error('No bundle tags found — tag seeding must run before this section.');
-
+  console.log('Creating transactions & QC records...');
   for (let i = 0; i < Math.min(createdBundles.length, 10); i++) {
     const bundle = createdBundles[i];
     const worker = workers[i % workers.length];
+    const machine = machines[i % machines.length];
+    const po = productionOrders[0];
 
     try {
-      // BundleStageLog tracks bundle movement through an operation stage
-      await prisma.bundleStageLog.create({
+      const trx = await prisma.bundleTransaction.create({
         data: {
-          bundleId: bundle.id,
-          tagId: seedTag.id,
-          operationId: opCollar.id,
-          operatorId: worker.id,
-          inTime: new Date(),
+          bundleId: bundle.id, productionOrderId: po.id, fromOperationId: opCollar.id,
+          fromWorkerId: worker.id, fromMachineId: machine.id, quantity: 50, transactionType: 'START'
         }
       });
 
-      // QCCheckLog for some bundles
+      // QC for some bundles
       if (i % 3 === 0) {
-        await prisma.qCCheckLog.create({
+        await prisma.qC.create({
           data: {
-            bundleId: bundle.id,
-            qcPersonId: workers[8].id,
-            qcTier: 'LINE_QC',
-            operationId: opCollar.id,
-            workerId: worker.id,
-            status: 'PASS',
-            passQuantity: 48,
-            rejectQuantity: 1,
-            reworkQuantity: 1,
-            defectNotes: 'Minor stitch length variation on collar seam.',
+            bundleId: bundle.id, transactionId: trx.id,
+            inspectorName: workers[8].firstName + ' ' + workers[8].lastName,
+            workerId: worker.id, machineId: machine.id,
+            passQuantity: 48, rejectQuantity: 1, reworkQuantity: 1,
+            remarks: 'Minor stitch length variation on collar seam.'
           }
         });
       }
@@ -447,81 +395,8 @@ async function main() {
     } catch (e) { /* skip */ }
   }
 
-  // (Bundle tags already seeded in step 4 above)
-
-  // =============================================
-  // 8. TEST DATA FOR PLANNING MODULE
-  // =============================================
-  console.log('Creating test data for planning module (new floor, machines, workers)...');
-  const testDept = await prisma.department.upsert({
-    where: { code: 'DEPT-TEST' },
-    update: {},
-    create: { code: 'DEPT-TEST', name: 'Test Floor', description: 'Floor for testing planning module' }
-  });
-
-  const testTerminals = [];
-  for (let i = 141; i <= 160; i++) {
-    const t = await prisma.terminal.upsert({
-      where: { terminalCode: `TERM-${i.toString().padStart(3,'0')}` },
-      update: {},
-      create: {
-        terminalCode: `TERM-${i.toString().padStart(3,'0')}`,
-        terminalName: `Test Terminal ${i}`,
-        ipAddress: `192.168.10.${100 + i}`,
-        macAddress: `AA:BB:CC:DD:EE:${(i % 99).toString().padStart(2,'0')}`,
-        lastHeartbeat: new Date()
-      }
-    });
-    testTerminals.push(t);
-  }
-
-  const testMachines = [];
-  for (let i = 141; i <= 160; i++) {
-    const code = `MCH-${i.toString().padStart(3,'0')}`;
-    const name = `Test Machine - ${i}`;
-    const machine = await prisma.machine.upsert({
-      where: { machineCode: code },
-      update: {},
-      create: { 
-          machineCode: code, 
-          machineName: name, 
-          departmentId: testDept.id, 
-          machineTypeId: mtJuki.id, 
-          terminalId: testTerminals[i-141].id 
-      }
-    });
-    testMachines.push(machine);
-  }
-
-  const testWorkers = [];
-  for (let i = 101; i <= 120; i++) {
-    const worker = await prisma.worker.upsert({
-      where: { employeeCode: `EMP-T${i}` },
-      update: {},
-      create: {
-        employeeCode: `EMP-T${i}`, nfcCardId: `NFC-T${i}`, firstName: `TestWorker${i}`, lastName: `Planning`, gender: 'M',
-        departmentId: testDept.id, gradeId: gradeA.id,
-        joiningDate: new Date()
-      }
-    });
-    testWorkers.push(worker);
-    
-    // Add all skills so they can be tested across any operation
-    await prisma.workerSkill.upsert({
-      where: { workerId_skillId: { workerId: worker.id, skillId: skillCollar.id } },
-      update: {}, create: { workerId: worker.id, skillId: skillCollar.id }
-    });
-    await prisma.workerSkill.upsert({
-      where: { workerId_skillId: { workerId: worker.id, skillId: skillSleeve.id } },
-      update: {}, create: { workerId: worker.id, skillId: skillSleeve.id }
-    });
-    await prisma.workerSkill.upsert({
-      where: { workerId_skillId: { workerId: worker.id, skillId: skillOverlock.id } },
-      update: {}, create: { workerId: worker.id, skillId: skillOverlock.id }
-    });
-  }
-
   console.log('✅ Comprehensive seed completed!');
+  console.log('Summary:');
   console.log(`  - 4 Departments`);
   console.log(`  - 4 Machine Types`);
   console.log(`  - 2 Shifts`);
@@ -529,24 +404,9 @@ async function main() {
   console.log(`  - 6 Operations`);
   console.log(`  - 140 Terminals & 140 Machines`);
   console.log(`  - 10 Workers`);
-  // =============================================
-  // ADMIN USER
-  // =============================================
-  console.log('Creating admin user...');
-  const bcrypt = await import('bcryptjs');
-  const adminHash = await bcrypt.hash('password', 10);
-  await prisma.user.upsert({
-    where: { email: 'admin@factory.com' },
-    update: { password: adminHash, name: 'Admin User', role: 'ADMIN' },
-    create: { email: 'admin@factory.com', password: adminHash, name: 'Admin User', role: 'ADMIN' }
-  });
-  console.log('  ✅ admin@factory.com / password (role: ADMIN)');
-
-  console.log('\n✅ Seed complete! Created:');
   console.log(`  - 5 Production Orders (Nike, Adidas, H&M, Zara, M&S)`);
   console.log(`  - 20 Bundles with Transactions`);
   console.log(`  - QC Records, Assignments, Attendance, Planning Tasks`);
-  console.log(`  - Admin user: admin@factory.com / password`);
 }
 
 main()

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
 export type ReportCategory = 
+  | "Factory Overview"
   | "Production" 
   | "Worker Performance" 
   | "Machine Utilization" 

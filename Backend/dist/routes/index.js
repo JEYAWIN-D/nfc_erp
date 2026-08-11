@@ -23,7 +23,6 @@ const tag_routes_1 = __importDefault(require("../modules/tag/routes/tag.routes")
 const stage_log_routes_1 = __importDefault(require("../modules/stage-log/routes/stage-log.routes"));
 const qc_check_routes_1 = __importDefault(require("../modules/qc-check/routes/qc-check.routes"));
 const iot_routes_1 = __importDefault(require("../modules/iot/routes/iot.routes"));
-const prisma_1 = __importDefault(require("../config/prisma"));
 const router = (0, express_1.Router)();
 router.use("/departments", department_routes_1.default);
 router.use("/workers", worker_routes_1.default);
@@ -44,16 +43,4 @@ router.use("/tags", tag_routes_1.default);
 router.use("/stage-logs", stage_log_routes_1.default);
 router.use("/qc-checks", qc_check_routes_1.default);
 router.use("/iot", iot_routes_1.default);
-// Lightweight skills list — no dedicated module needed yet
-const skillsRouter = (0, express_1.Router)();
-skillsRouter.get("/", async (_req, res) => {
-    try {
-        const skills = await prisma_1.default.skill.findMany({ where: { status: "ACTIVE" }, orderBy: { name: "asc" } });
-        res.json({ data: skills });
-    }
-    catch (e) {
-        res.status(500).json({ error: e.message });
-    }
-});
-router.use("/skills", skillsRouter);
 exports.default = router;

@@ -15,13 +15,6 @@ export function QCHeader() {
         <button className="flex items-center gap-2 px-3 py-2 bg-zinc-900 hover:bg-zinc-800 text-white text-sm font-medium rounded-md border border-white/10 transition-colors">
           <Download className="w-4 h-4 text-white/60" /> Export
         </button>
-        <div className="w-px h-6 bg-white/10 mx-1" />
-        <button
-          onClick={() => store.setCreateModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-md shadow-lg shadow-blue-900/20 transition-colors"
-        >
-          <Plus className="w-4 h-4" /> New Inspection
-        </button>
       </div>
     </div>
   );

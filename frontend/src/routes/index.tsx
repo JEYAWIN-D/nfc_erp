@@ -43,7 +43,6 @@ import AssignmentsPage from "@/features/assignment/AssignmentsPage";
 // Production
 import ProductionOrderPage from "@/features/production-order/ProductionOrderPage";
 import BundlePage from "@/features/bundle/BundlePage";
-import BundleTransactionPage from "@/features/bundle-transaction/BundleTransactionPage";
 
 // QC
 import QCPage from "@/features/qc/QCPage";
@@ -105,7 +104,6 @@ export function AppRouter() {
           <Route path="/attendance" element={<AttendancePage />} />
           <Route path="/production-orders" element={<ProductionOrderPage />} />
           <Route path="/bundles" element={<BundlePage />} />
-          <Route path="/bundle-transactions" element={<BundleTransactionPage />} />
           <Route path="/qc" element={<QCPage />} />
           <Route path="/tag-workflow" element={<TagWorkflowPage />} />
           <Route path="/reports" element={<ReportsPage />} />

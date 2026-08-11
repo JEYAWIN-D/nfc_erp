@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 const CATEGORIES: { id: ReportCategory; label: string; icon: any }[] = [
+  { id: "Factory Overview" as ReportCategory, label: "Factory Overview", icon: BarChart3 },
   { id: "Production", label: "Production Report", icon: BarChart3 },
   { id: "Worker Performance", label: "Worker Performance", icon: Users },
   { id: "Machine Utilization", label: "Machine Utilization", icon: Settings },

@@ -90,25 +90,6 @@ class PlanningController {
             res.status(500).json({ error: error.message });
         }
     }
-    async getOpenBundles(req, res) {
-        try {
-            const operationId = Number(req.params.id);
-            const result = await planning_service_1.planningService.getOpenBundlesForOperation(operationId);
-            res.json(result);
-        }
-        catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    }
-    async getTerminals(req, res) {
-        try {
-            const result = await planning_service_1.planningService.getTerminals();
-            res.json(result);
-        }
-        catch (error) {
-            res.status(500).json({ error: error.message });
-        }
-    }
 }
 exports.PlanningController = PlanningController;
 exports.planningController = new PlanningController();

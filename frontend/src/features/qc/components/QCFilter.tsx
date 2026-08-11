@@ -2,7 +2,7 @@ import { Search, RotateCcw } from "lucide-react";
 import { useQCStore } from "../store/qc.store";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useQCRecords } from "../hooks/useQCData";
+import { useQCs } from "../hooks/useQCs";
 
 function sv(setter: (v: string) => void) {
   return (v: string | null) => setter(v ?? "");
@@ -10,7 +10,13 @@ function sv(setter: (v: string) => void) {
 
 export function QCFilter() {
   const store = useQCStore();
-  const { BUNDLES, POS, WORKERS, MACHINES, DEPARTMENTS } = useQCRecords();
+  const { data: inspections = [] } = useQCs();
+
+  const BUNDLES = Array.from(new Set(inspections.map(i => i.bundleNumber).filter(Boolean)));
+  const POS = Array.from(new Set(inspections.map(i => i.productionOrder).filter(Boolean)));
+  const WORKERS = Array.from(new Set(inspections.map(i => i.worker).filter(Boolean)));
+  const MACHINES = Array.from(new Set(inspections.map(i => i.machine).filter(Boolean)));
+  const DEPARTMENTS = Array.from(new Set(inspections.map(i => i.department).filter(Boolean)));
 
   return (
     <div className="flex flex-col md:flex-row items-start md:items-center gap-3 px-6 py-4 border-b border-white/[0.05] bg-zinc-950 flex-shrink-0 flex-wrap">

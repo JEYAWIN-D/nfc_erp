@@ -38,20 +38,6 @@ class MachineRepository {
                     assignments: {
                         where: { status: "ACTIVE" },
                         include: { worker: true, operation: true, shift: true }
-                    },
-                    bundles: {
-                        where: { status: "IN_PROGRESS" },
-                        take: 1
-                    },
-                    productionTasks: {
-                        where: { status: { in: ["ASSIGNED", "RUNNING"] } },
-                        include: {
-                            productionOrder: true,
-                            department: true,
-                            operation: true,
-                            worker: true
-                        },
-                        take: 1
                     }
                 }
             })
@@ -74,20 +60,6 @@ class MachineRepository {
                 assignments: {
                     where: { status: "ACTIVE" },
                     include: { worker: true, operation: true, shift: true }
-                },
-                bundles: {
-                    where: { status: "IN_PROGRESS" },
-                    take: 1
-                },
-                productionTasks: {
-                    where: { status: { in: ["ASSIGNED", "RUNNING"] } },
-                    include: {
-                        productionOrder: true,
-                        department: true,
-                        operation: true,
-                        worker: true
-                    },
-                    take: 1
                 }
             }
         });

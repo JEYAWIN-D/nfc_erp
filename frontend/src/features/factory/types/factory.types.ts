@@ -26,36 +26,36 @@ export const MACHINE_STATUS_META: Record<
     dot: 'bg-emerald-400',
   },
   idle: {
-    label: 'Assigned',
-    color: 'text-blue-400',
-    bg: 'bg-blue-500/10',
-    border: 'border-blue-500/50',
-    glow: 'shadow-[0_0_12px_2px_rgba(59,130,246,0.22)]',
-    dot: 'bg-blue-400',
+    label: 'Idle',
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/50',
+    glow: 'shadow-[0_0_12px_2px_rgba(245,158,11,0.22)]',
+    dot: 'bg-amber-400',
   },
   offline: {
-    label: 'Checked Out / Absent',
-    color: 'text-red-400',
-    bg: 'bg-red-500/10',
-    border: 'border-red-500/50',
-    glow: 'shadow-[0_0_12px_2px_rgba(239,68,68,0.22)]',
-    dot: 'bg-red-400',
-  },
-  maintenance: {
-    label: 'Fault / Maintenance',
+    label: 'Offline',
     color: 'text-red-400',
     bg: 'bg-red-500/10',
     border: 'border-red-500/50',
     glow: 'shadow-[0_0_12px_2px_rgba(239,68,68,0.22)]',
     dot: 'bg-red-500',
   },
+  maintenance: {
+    label: 'Maintenance',
+    color: 'text-violet-400',
+    bg: 'bg-violet-500/10',
+    border: 'border-violet-500/50',
+    glow: 'shadow-[0_0_12px_2px_rgba(139,92,246,0.22)]',
+    dot: 'bg-violet-400',
+  },
   no_worker: {
-    label: 'Unassigned',
+    label: 'No Worker',
     color: 'text-zinc-400',
-    bg: 'bg-zinc-800/40',
-    border: 'border-white/10',
+    bg: 'bg-zinc-500/10',
+    border: 'border-zinc-600/40',
     glow: '',
-    dot: 'bg-zinc-600',
+    dot: 'bg-zinc-500',
   },
 };
 
@@ -156,9 +156,6 @@ export interface Assignment {
   machineId: string;
   operationId: string;
   operationName: string;
-  projectName?: string;
-  productionOrder?: string;
-  departmentName?: string;
   bundleId: string;
   startedAt: string; // ISO
   targetPieces: number;
@@ -194,16 +191,9 @@ export interface Machine {
   powerStatus: PowerStatus;    // (v2)
   networkStatus: NetworkStatus;// (v2)
   todayTimeline: TimelineEvent[];
-  isWorking?: boolean;
-  // 3D-ready
-  position: { row: 'top' | 'bottom'; index: number; x?: number; y?: number; z?: number };
-  roomId?: string;
+  roomId?: number;
   rowIndex?: number;
-  positionIndex?: number;
-  // Enriched attendance context for Live Factory tooltip
-  attendanceState?: 'present' | 'checked_out' | 'assigned_not_present';
-  checkInTime?: string;
-  checkOutTime?: string;
+  position: { row: 'top' | 'bottom'; index: number; x?: number; y?: number; z?: number };
 }
 
 // ─── Production Line ──────────────────────────────────────────────────────────
@@ -224,8 +214,6 @@ export interface FactoryRoom {
   description?: string;
   roomType: RoomType;
   lines: ProductionLine[];
-  machinesPerRow?: number;
-  rowsCount?: number;
   position?: { x?: number; y?: number; z?: number };
 }
 

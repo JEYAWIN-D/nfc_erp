@@ -132,10 +132,8 @@ export class PlanningService {
         'PLANNED': ['ASSIGNED', 'CREATED'],
         'ASSIGNED': ['ACCEPTED', 'RUNNING', 'PLANNED'],
         'ACCEPTED': ['RUNNING', 'ASSIGNED'],
-        'RUNNING': ['COMPLETED', 'ASSIGNED', 'QC', 'ACCEPTED'],
-        'COMPLETED': ['QC', 'TRANSFERRED', 'CLOSED'],
-        'QC': ['COMPLETED', 'TRANSFERRED', 'RUNNING'],
-        'TRANSFERRED': ['CLOSED'],
+        'RUNNING': ['COMPLETED', 'ASSIGNED', 'ACCEPTED'],
+        'COMPLETED': ['CLOSED'],
         'CLOSED': []
       };
 

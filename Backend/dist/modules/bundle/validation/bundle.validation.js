@@ -14,5 +14,5 @@ exports.updateBundleSchema = zod_1.z.object({
     quantity: zod_1.z.number().int().positive().optional(),
 });
 exports.updateBundleStatusSchema = zod_1.z.object({
-    status: zod_1.z.enum(["CREATED", "IN_PROGRESS", "WAITING", "COMPLETED", "QC_COMPLETED"]),
+    status: zod_1.z.enum(["CREATED", "IN_PROGRESS", "WAITING", "COMPLETED", "QC_COMPLETED", "REWORK", "HOLD"]),
 });

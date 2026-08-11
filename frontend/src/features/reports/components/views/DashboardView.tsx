@@ -29,6 +29,35 @@ export function DashboardView() {
           </div>
 
           {/* Dynamic Content Based on Active Category */}
+          {store.activeCategory === "Factory Overview" && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-6">
+                <p className="text-white/50 text-sm mb-1">Total Workers</p>
+                <p className="text-2xl font-bold text-white">{data.dashboardData?.workers?.total || '-'}</p>
+                <p className="text-emerald-400 text-xs mt-2">{data.dashboardData?.workers?.present || '-'} Present</p>
+              </div>
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-6">
+                <p className="text-white/50 text-sm mb-1">Machines</p>
+                <p className="text-2xl font-bold text-white">{data.dashboardData?.machines?.total || '-'}</p>
+                <p className="text-emerald-400 text-xs mt-2">{data.dashboardData?.machines?.active || '-'} Active</p>
+              </div>
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-6">
+                <p className="text-white/50 text-sm mb-1">Production (Units)</p>
+                <p className="text-2xl font-bold text-white">{data.dashboardData?.production?.completed || '-'}</p>
+                <p className="text-emerald-400 text-xs mt-2">{data.dashboardData?.production?.efficiency || '-'}% Efficiency</p>
+              </div>
+              <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-6">
+                <p className="text-white/50 text-sm mb-1">QC Pass Rate</p>
+                <p className="text-2xl font-bold text-white">
+                  {data.dashboardData?.qc ? 
+                    Math.round((data.dashboardData.qc.pass / ((data.dashboardData.qc.pass + data.dashboardData.qc.reject) || 1)) * 100) 
+                    : '-'}%
+                </p>
+                <p className="text-rose-400 text-xs mt-2">{data.dashboardData?.qc?.reject || '-'} Rejects</p>
+              </div>
+            </div>
+          )}
+
           {store.activeCategory === "Production" && (
             <div className="grid grid-cols-1 gap-6">
               <div className="bg-zinc-900/50 border border-white/5 rounded-xl p-6">

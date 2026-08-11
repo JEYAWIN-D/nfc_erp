@@ -11,28 +11,9 @@ export class DashboardRepository {
     const startOfToday = this.getStartOfToday();
     const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-    // 1. Get all attendances today to determine truly present workers
-    const todaysAttendances = await prisma.attendance.findMany({
-      where: { tapTime: { gte: startOfToday } },
-      orderBy: { tapTime: 'desc' },
-      select: { workerId: true, attendanceType: true }
-    });
-    
-    const latestTapByWorker = new Map<number, string>();
-    for (const a of todaysAttendances) {
-      if (!latestTapByWorker.has(a.workerId)) {
-        latestTapByWorker.set(a.workerId, a.attendanceType);
-      }
-    }
-    
-    const presentWorkerIds = Array.from(latestTapByWorker.entries())
-      .filter(([_, type]) => type === 'IN')
-      .map(([id, _]) => id);
-
-    // 2. Query the rest of the metrics
     const [
       totalWorkers,
-      activeWorkersCount,
+      presentWorkersRecords,
       activeAssignments,
       totalMachines,
       offlineTerminals,
@@ -43,11 +24,10 @@ export class DashboardRepository {
     ] = await prisma.$transaction([
       // Worker summary metrics
       prisma.worker.count({ where: { status: 'ACTIVE' } }),
-      prisma.assignment.count({ 
-        where: { 
-          status: 'ACTIVE',
-          workerId: { in: presentWorkerIds }
-        } 
+      prisma.attendance.groupBy({
+        by: ['workerId'],
+        where: { tapTime: { gte: startOfToday } },
+        orderBy: { workerId: 'asc' }
       }),
       // Shared active metrics (running machines = active assignments)
       prisma.assignment.count({ where: { status: 'ACTIVE' } }),
@@ -79,18 +59,15 @@ export class DashboardRepository {
       }),
 
       // QC summary metrics
-      prisma.qCCheckLog.groupBy({
-        by: ['status'],
-        _count: { id: true },
-        where: { checkedAt: { gte: startOfToday } },
-        orderBy: { status: 'asc' }
+      prisma.qCCheckLog.aggregate({
+        _sum: { passQuantity: true, rejectQuantity: true, reworkQuantity: true },
+        where: { checkedAt: { gte: startOfToday } }
       })
     ]);
 
     return {
       totalWorkers,
-      presentWorkersCount: presentWorkerIds.length,
-      activeWorkersCount,
+      presentWorkersCount: presentWorkersRecords.length,
       activeAssignments,
       totalMachines,
       offlineTerminals,
@@ -143,64 +120,5 @@ export class DashboardRepository {
       },
       orderBy: { tapTime: 'desc' }
     });
-  }
-
-  async getExtendedData() {
-    const startOfToday = this.getStartOfToday();
-    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-
-    const [
-      terminals,
-      workers,
-      productionOrders,
-      departments,
-      shifts,
-      qcLogs,
-      quarantineLogs
-    ] = await Promise.all([
-      prisma.terminal.findMany({
-        orderBy: { terminalCode: 'asc' }
-      }),
-      prisma.worker.findMany({
-        where: { status: 'ACTIVE' },
-        take: 10
-      }),
-      prisma.productionOrder.findMany({
-        where: { status: { in: ['PLANNED', 'IN_PROGRESS'] } },
-        take: 5
-      }),
-      prisma.department.findMany({
-        include: {
-          machines: {
-            where: { status: 'ACTIVE' },
-            include: { terminal: true, assignments: { where: { status: 'ACTIVE' } } }
-          }
-        }
-      }),
-      prisma.shift.findMany({
-        where: { status: 'ACTIVE' }
-      }),
-      prisma.qCCheckLog.findMany({
-        where: { checkedAt: { gte: startOfToday } },
-        select: { status: true, defectNotes: true }
-      }),
-      prisma.qCCheckLog.findMany({
-        where: { status: 'FAIL' },
-        include: { bundle: true, operation: true },
-        take: 5,
-        orderBy: { checkedAt: 'desc' }
-      })
-    ]);
-
-    return {
-      terminals,
-      workers,
-      productionOrders,
-      departments,
-      shifts,
-      qcLogs,
-      quarantineLogs,
-      fiveMinsAgo
-    };
   }
 }

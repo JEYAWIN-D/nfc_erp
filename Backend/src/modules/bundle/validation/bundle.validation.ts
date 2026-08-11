@@ -14,5 +14,5 @@ export const updateBundleSchema = z.object({
 });
 
 export const updateBundleStatusSchema = z.object({
-  status: z.enum(["CREATED", "IN_PROGRESS", "WAITING", "COMPLETED", "QC_COMPLETED"]),
+  status: z.enum(["CREATED", "IN_PROGRESS", "WAITING", "COMPLETED", "QC_COMPLETED", "REWORK", "HOLD"]),
 });

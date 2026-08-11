@@ -1,67 +1,37 @@
-import apiClient from '@/services/axios';
-import type {
-  ApiResponse,
-  QCsResponse,
-  QCQueryParams,
-  QCInspection,
-  QCResult
-} from '../types/qc.types';
+import api from '@/services/axios';
+import type { QCCheckLog, QCInspection, QCQueryParams } from '../types/qc.types';
 
-const BASE = '/qc-checks';
-
-export const mapQCAPIToUI = (apiData: any): QCInspection => {
-  const statusMap: Record<string, QCResult> = {
-    PASS: "Pass",
-    FAIL: "Fail",
-    REWORK: "Rework"
-  };
-
+function mapLogToInspection(log: QCCheckLog): QCInspection {
   return {
-    id: apiData.id.toString(),
-    inspectionId: `QC-${apiData.id.toString().padStart(4, '0')}`,
-    bundleNumber: apiData.bundle?.bundleNumber || "Unknown",
-    productionOrder: `PO-${apiData.bundle?.productionOrderId || "Unknown"}`,
-    worker: apiData.worker 
-      ? `${apiData.worker.firstName} ${apiData.worker.lastName}` 
-      : "Unknown",
-    machine: "N/A", // QCCheckLog doesn't store machine directly, would need to resolve via transaction/assignment if needed
-    department: "Sewing",
-    operation: apiData.operation?.operationName || "Unknown",
-    inspector: apiData.qcPerson 
-      ? `${apiData.qcPerson.firstName} ${apiData.qcPerson.lastName}` 
-      : "System",
-    result: statusMap[apiData.status] || "Pending",
-    defectCount: apiData.rejectQuantity || 0,
-    remarks: apiData.defectNotes || undefined,
+    id: log.id.toString(),
+    inspectionId: `QC-${30000 + log.id}`,
+    bundleNumber: log.bundle?.qrCode || `BND-${log.bundleId}`,
+    productionOrder: log.bundle?.productionOrder?.code || 'Unknown PO',
+    worker: log.worker?.name || 'Unknown Worker',
+    machine: 'N/A', // Assuming no direct machine on QCCheckLog
+    department: 'Stitching', // Hardcoded or extracted from operation
+    operation: log.operation?.name || 'Unknown Operation',
+    inspector: log.qcPerson?.name || 'System',
+    result: log.status === 'PASS' ? 'Pass' : log.status === 'FAIL' ? 'Fail' : 'Rework',
+    defectCount: log.rejectQuantity + log.reworkQuantity,
+    remarks: log.defectNotes,
     images: [],
-    date: apiData.checkedAt,
-    timeline: []
+    date: log.checkedAt,
+    timeline: [
+      { id: `t_${log.id}`, timestamp: log.checkedAt, action: `Inspection ${log.status}`, actor: log.qcPerson?.name || 'System' }
+    ]
   };
-};
+}
 
 export const qcService = {
-  async getAll(params?: QCQueryParams): Promise<QCInspection[]> {
-    const { data } = await apiClient.get<any>(BASE, { params });
-    const items = Array.isArray(data.data) ? data.data : (data as unknown as any[]);
-    return items.map(mapQCAPIToUI);
+  getAll: async (params?: QCQueryParams): Promise<QCInspection[]> => {
+    const response = await api.get('/qc-checks', { params });
+    const data: QCCheckLog[] = response.data?.data || response.data || [];
+    return data.map(mapLogToInspection);
   },
-
-  async getById(id: number): Promise<QCInspection> {
-    const { data } = await apiClient.get<any>(`${BASE}/${id}`);
-    return mapQCAPIToUI(data.data);
-  },
-
-  async create(payload: any): Promise<QCInspection> {
-    console.warn("QC create via this service is deprecated. Use QCTerminalPage.");
-    return {} as QCInspection;
-  },
-
-  async update(id: number, payload: any): Promise<QCInspection> {
-    console.warn("QC update via this service is deprecated.");
-    return {} as QCInspection;
-  },
-
-  async delete(id: number): Promise<void> {
-    console.warn("QC delete via this service is deprecated.");
+  getById: async (id: number): Promise<QCInspection> => {
+    const response = await api.get(`/qc-checks/${id}`);
+    const data: QCCheckLog = response.data?.data || response.data;
+    return mapLogToInspection(data);
   }
 };

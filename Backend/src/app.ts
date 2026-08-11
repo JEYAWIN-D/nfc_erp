@@ -1,37 +1,25 @@
-import express from "express";
+import express, { Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import compression from "compression";
-import morgan from "morgan";
+import rateLimit from "express-rate-limit";
 
-import routes from "././routes";
+import routes from "./routes";
 
 const app = express();
 
-app.use(cors({
-  origin: [
-    "http://localhost:5173",
-    "https://nfc-seven-psi.vercel.app",
-  ],
-  credentials: true,
-  allowedHeaders: ["Content-Type", "Authorization", "X-Authorization"],
-}));
-
-app.use(helmet());
-app.use(compression());
-app.use(morgan("dev"));
+app.use(cors());
 
 app.use(express.json());
 
+app.use(helmet());
+app.use('/api/v1/iot', rateLimit({ windowMs: 60_000, max: 60 }));
+app.use('/api/v1/qc-checks', rateLimit({ windowMs: 60_000, max: 60 }));
+
 app.use("/api/v1", routes);
 
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error("Global Error:", err.message || err);
-  res.status(err.status || 500).json({ 
-    success: false, 
-    message: err.message || "Internal Server Error", 
-    errors: err.errors 
-  });
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  console.error(err);
+  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
 });
 
 export default app;

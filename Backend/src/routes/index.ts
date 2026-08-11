@@ -3,7 +3,7 @@ import { Router } from "express";
 import departmentRoutes from "../modules/department/routes/department.routes";
 import workerRoutes from "../modules/worker/routes/worker.routes";
 import machineRoutes from "../modules/machine/routes/machine.routes";
-import machineTypeRoutes from "../modules/machine-type/routes/machine-type.routes";
+import { machineTypeRoutes } from "../modules/machine-type/routes/machine-type.routes";
 import operationRoutes from "../modules/operation/routes/operation.routes";
 import shiftRoutes from "../modules/shift/routes/shift.routes";
 import assignmentRoutes from "../modules/assignment/routes/assignment.routes";
@@ -21,18 +21,9 @@ import tagRoutes from "../modules/tag/routes/tag.routes";
 import stageLogRoutes from "../modules/stage-log/routes/stage-log.routes";
 import qcCheckRoutes from "../modules/qc-check/routes/qc-check.routes";
 import iotRoutes from "../modules/iot/routes/iot.routes";
-import authRoutes from "../modules/auth/routes/auth.routes";
-import { requireAuth } from "../middleware/auth.middleware";
-import prisma from "../config/prisma";
+import liveFactoryRoutes from "../modules/live-factory/routes/live-factory.routes";
 
 const router = Router();
-
-// Public routes
-router.use("/auth", authRoutes);
-router.use("/iot", iotRoutes); // Terminals might need separate auth, keeping public for now
-
-// Protected routes
-router.use(requireAuth);
 
 router.use("/departments", departmentRoutes);
 router.use("/workers", workerRoutes);
@@ -54,17 +45,7 @@ router.use("/planning", planningRoutes);
 router.use("/tags", tagRoutes);
 router.use("/stage-logs", stageLogRoutes);
 router.use("/qc-checks", qcCheckRoutes);
-
-// Lightweight skills list — no dedicated module needed yet
-const skillsRouter = Router();
-skillsRouter.get("/", async (_req, res) => {
-  try {
-    const skills = await prisma.skill.findMany({ where: { status: "ACTIVE" }, orderBy: { name: "asc" } });
-    res.json({ data: skills });
-  } catch (e: any) {
-    res.status(500).json({ error: e.message });
-  }
-});
-router.use("/skills", skillsRouter);
+router.use("/iot", iotRoutes);
+router.use("/live-factory", liveFactoryRoutes);
 
 export default router;

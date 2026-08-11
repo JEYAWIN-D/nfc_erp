@@ -42,6 +42,10 @@ export const WEBSOCKET_EVENTS = {
   DASHBOARD_REFRESH: 'dashboard.refresh',
   DASHBOARD_OVERVIEW_UPDATED: 'dashboard.overview.updated',
   DASHBOARD_LIVEFLOOR_UPDATED: 'dashboard.livefloor.updated',
+
+  // Live Factory
+  MACHINE_STATUS_CHANGED: 'machine.status_changed',
+  FACTORY_TICKER_EVENT: 'factory.ticker',
 };
 
 export const WEBSOCKET_ROOMS = {

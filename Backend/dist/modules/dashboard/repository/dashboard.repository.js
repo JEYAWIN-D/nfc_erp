@@ -14,30 +14,13 @@ class DashboardRepository {
     async getOverviewData() {
         const startOfToday = this.getStartOfToday();
         const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000);
-        // 1. Get all attendances today to determine truly present workers
-        const todaysAttendances = await prisma_1.default.attendance.findMany({
-            where: { tapTime: { gte: startOfToday } },
-            orderBy: { tapTime: 'desc' },
-            select: { workerId: true, attendanceType: true }
-        });
-        const latestTapByWorker = new Map();
-        for (const a of todaysAttendances) {
-            if (!latestTapByWorker.has(a.workerId)) {
-                latestTapByWorker.set(a.workerId, a.attendanceType);
-            }
-        }
-        const presentWorkerIds = Array.from(latestTapByWorker.entries())
-            .filter(([_, type]) => type === 'IN')
-            .map(([id, _]) => id);
-        // 2. Query the rest of the metrics
-        const [totalWorkers, activeWorkersCount, activeAssignments, totalMachines, offlineTerminals, productionOrders, todaysTransactions, bundlesGrouped, qcAggregate] = await prisma_1.default.$transaction([
+        const [totalWorkers, presentWorkersRecords, activeAssignments, totalMachines, offlineTerminals, productionOrders, todaysTransactions, bundlesGrouped, qcAggregate] = await prisma_1.default.$transaction([
             // Worker summary metrics
             prisma_1.default.worker.count({ where: { status: 'ACTIVE' } }),
-            prisma_1.default.assignment.count({
-                where: {
-                    status: 'ACTIVE',
-                    workerId: { in: presentWorkerIds }
-                }
+            prisma_1.default.attendance.groupBy({
+                by: ['workerId'],
+                where: { tapTime: { gte: startOfToday } },
+                orderBy: { workerId: 'asc' }
             }),
             // Shared active metrics (running machines = active assignments)
             prisma_1.default.assignment.count({ where: { status: 'ACTIVE' } }),
@@ -65,17 +48,14 @@ class DashboardRepository {
                 orderBy: { status: 'asc' }
             }),
             // QC summary metrics
-            prisma_1.default.qCCheckLog.groupBy({
-                by: ['status'],
-                _count: { id: true },
-                where: { checkedAt: { gte: startOfToday } },
-                orderBy: { status: 'asc' }
+            prisma_1.default.qCCheckLog.aggregate({
+                _sum: { passQuantity: true, rejectQuantity: true, reworkQuantity: true },
+                where: { checkedAt: { gte: startOfToday } }
             })
         ]);
         return {
             totalWorkers,
-            presentWorkersCount: presentWorkerIds.length,
-            activeWorkersCount,
+            presentWorkersCount: presentWorkersRecords.length,
             activeAssignments,
             totalMachines,
             offlineTerminals,

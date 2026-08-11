@@ -54,6 +54,11 @@ export class QCCheckService {
       if (!bundle) throw new Error('Bundle not found');
       if (!qcPerson) throw new Error('QC person (worker) not found');
 
+      // Idempotency guard for double-counting
+      if (dto.qcTier === 'FINAL_QC' && dto.status === 'PASS' && bundle.status === 'QC_COMPLETED') {
+        throw new Error('Bundle already QC completed — duplicate scan ignored');
+      }
+
       if (dto.operationId) {
         const op = await tx.operation.findUnique({ where: { id: dto.operationId } });
         if (!op) throw new Error('Operation not found');
@@ -63,12 +68,6 @@ export class QCCheckService {
         if (!w) throw new Error('Worker being audited not found');
       }
 
-      // Idempotency guard
-      if (dto.qcTier === 'FINAL_QC' && dto.status === 'PASS' && bundle.status === 'QC_COMPLETED') {
-        throw new Error('Bundle already QC completed — duplicate scan ignored');
-      }
-
-      // We use tx.qCCheckLog directly since we are inside a transaction
       const check = await tx.qCCheckLog.create({
         data: {
           bundleId: dto.bundleId,
@@ -78,22 +77,27 @@ export class QCCheckService {
           operationId: dto.operationId,
           workerId: dto.workerId,
           status: dto.status as QCCheckStatus,
-          defectNotes: dto.defectNotes,
           passQuantity: dto.passQuantity,
           rejectQuantity: dto.rejectQuantity,
           reworkQuantity: dto.reworkQuantity,
+          defectNotes: dto.defectNotes,
+        },
+        include: {
+          bundle: { include: { productionOrder: true } },
+          tag: true,
+          qcPerson: true,
+          operation: true,
+          worker: true,
         }
       });
 
       // If final QC passed, mark bundle as QC_COMPLETED and auto-release the tag
       if (dto.qcTier === 'FINAL_QC' && dto.status === 'PASS') {
-        const passedQty = dto.passQuantity ?? bundle.quantity;
-        
         await tx.bundle.update({ 
           where: { id: dto.bundleId }, 
           data: { 
             status: 'QC_COMPLETED',
-            completedQuantity: { increment: passedQty }
+            completedQuantity: { increment: dto.passQuantity || bundle.quantity }
           } 
         });
         
@@ -108,14 +112,19 @@ export class QCCheckService {
           });
         }
 
-        // Bug 2 Fix: Order completion tracking
+        // Roll up completed quantity to production order
+        const passQty = dto.passQuantity || bundle.quantity;
         const order = await tx.productionOrder.update({
           where: { id: bundle.productionOrderId },
-          data: { completedQuantity: { increment: passedQty } }
+          data: { completedQuantity: { increment: passQty } }
         });
-        
+
+        // Complete order if target is reached
         if (order.completedQuantity >= order.plannedQuantity) {
-          await tx.productionOrder.update({ where: { id: order.id }, data: { status: 'COMPLETED' } });
+          await tx.productionOrder.update({ 
+            where: { id: order.id }, 
+            data: { status: 'COMPLETED' } 
+          });
         }
       } else if (dto.status === 'REWORK' || dto.status === 'FAIL') {
         await tx.bundle.update({
