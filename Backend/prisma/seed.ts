@@ -298,9 +298,9 @@ async function main() {
   }
 
   // =============================================
-  // 5. BUNDLE TRANSACTIONS & QC
+  // 5. BUNDLE STAGE LOGS & QC CHECKS
   // =============================================
-  console.log('Creating transactions & QC records...');
+  console.log('Creating stage logs & QC records...');
   for (let i = 0; i < Math.min(createdBundles.length, 10); i++) {
     const bundle = createdBundles[i];
     const worker = workers[i % workers.length];
@@ -308,22 +308,46 @@ async function main() {
     const po = productionOrders[0];
 
     try {
-      const trx = await prisma.bundleTransaction.create({
+      // Ensure a tag assignment exists for this bundle
+      const tagCode = `NFC-TAG-${String(i + 1).padStart(4, '0')}`;
+      const tag = await prisma.bundleTagAssignment.upsert({
+        where: { tagCode },
+        update: { bundleId: bundle.id, status: 'ASSIGNED', assignedAt: new Date() },
+        create: {
+          tagCode,
+          bundleId: bundle.id,
+          status: 'ASSIGNED',
+          assignedAt: new Date()
+        }
+      });
+
+      await prisma.bundleStageLog.create({
         data: {
-          bundleId: bundle.id, productionOrderId: po.id, fromOperationId: opCollar.id,
-          fromWorkerId: worker.id, fromMachineId: machine.id, quantity: 50, transactionType: 'START'
+          bundleId: bundle.id,
+          tagId: tag.id,
+          operationId: opCollar.id,
+          operatorId: worker.id,
+          inTime: new Date(Date.now() - 3600000),
+          outTime: new Date(),
+          remarks: 'Collar sewing operation'
         }
       });
 
       // QC for some bundles
       if (i % 3 === 0) {
-        await prisma.qC.create({
+        await prisma.qCCheckLog.create({
           data: {
-            bundleId: bundle.id, transactionId: trx.id,
-            inspectorName: workers[8].firstName + ' ' + workers[8].lastName,
-            workerId: worker.id, machineId: machine.id,
-            passQuantity: 48, rejectQuantity: 1, reworkQuantity: 1,
-            remarks: 'Minor stitch length variation on collar seam.'
+            bundleId: bundle.id,
+            tagId: tag.id,
+            qcPersonId: workers[8].id,
+            qcTier: 'LINE_QC',
+            operationId: opCollar.id,
+            workerId: worker.id,
+            status: 'PASS',
+            passQuantity: 48,
+            rejectQuantity: 1,
+            reworkQuantity: 1,
+            defectNotes: 'Minor stitch length variation on collar seam.'
           }
         });
       }
